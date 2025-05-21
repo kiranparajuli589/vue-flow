@@ -1,232 +1,145 @@
+<!-- src/views/RuleBuilderPage.vue -->
 <template>
-  <div class="app">
-    <header class="app-header">
+  <div class="rule-builder-page">
+    <div class="page-header">
       <h1>Rule Builder</h1>
-      <div class="app-actions">
-        <button @click="exportRule" class="action-button">Export Rule</button>
-        <button @click="importRule" class="action-button">Import Rule</button>
-      </div>
-    </header>
-    <RuleBuilder ref="ruleBuilder" />
+      <button @click="showRuleList = !showRuleList" class="toggle-btn">
+        {{ showRuleList ? 'Create New Rule' : 'View Rules' }}
+      </button>
+    </div>
 
-    <!-- Import/Export Modal -->
-    <div class="modal" v-if="showModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>{{ modalTitle }}</h2>
-          <button @click="closeModal" class="close-button">&times;</button>
-        </div>
-        <div class="modal-body">
-          <template v-if="modalMode === 'export'">
-            <p>Copy the rule JSON below:</p>
-            <textarea v-model="exportData" readonly class="export-textarea"></textarea>
-            <button @click="copyToClipboard" class="copy-button">Copy to Clipboard</button>
-          </template>
-          <template v-else-if="modalMode === 'import'">
-            <p>Paste the rule JSON below:</p>
-            <textarea v-model="importData" class="import-textarea"></textarea>
-            <div class="error-message" v-if="importError">{{ importError }}</div>
-            <button @click="processImport" class="import-button" :disabled="!importData">Import</button>
-          </template>
-        </div>
-      </div>
+    <div v-if="showRuleList" class="rule-list-container">
+      <h2>Existing Rules</h2>
+      <rule-list
+        :rules="rules"
+        config-key="path"
+        @create="createNewRule"
+        @edit="editRule"
+        @delete="deleteRule"
+        @toggle-status="toggleRuleStatus"
+      />
+    </div>
+
+    <div v-else class="rule-editor-container">
+      <rule-builder
+        :initial-rule="currentRule"
+        :meta="{ configKey: 'path' }"
+        @submit="saveRule"
+        @cancel="cancelEdit"
+      />
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue';
+<script setup lang="ts">
+import { ref } from 'vue';
+import RuleList from '@/components/rule-flow/RuleList.vue';
 import RuleBuilder from '@/components/RuleBuilder.vue';
 
-const ruleBuilder = ref(null);
-const showModal = ref(false);
-const modalMode = ref('export');
-const modalTitle = ref('Export Rule');
-const exportData = ref('');
-const importData = ref('');
-const importError = ref('');
+// State
+const rules = ref([]);
+const showRuleList = ref(true);
+const currentRule = ref(null);
 
-const exportRule = () => {
-  // Get the current rule configuration from the rule builder
-  const nodes = ruleBuilder.value.getNodes();
-  const edges = ruleBuilder.value.getEdges();
+// Methods
+function createNewRule() {
+  currentRule.value = null;
+  showRuleList.value = false;
+}
 
-  const ruleConfig = {
-    nodes: nodes.map(node => ({
-      id: node.id,
-      type: node.type,
-      position: node.position,
-      data: node.data
-    })),
-    edges: edges.map(edge => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target
-    }))
-  };
+function editRule(rule) {
+  currentRule.value = rule;
+  showRuleList.value = false;
+}
 
-  exportData.value = JSON.stringify(ruleConfig, null, 2);
-
-  // Show the modal
-  modalMode.value = 'export';
-  modalTitle.value = 'Export Rule';
-  showModal.value = true;
-};
-
-const importRule = () => {
-  // Show the import modal
-  importData.value = '';
-  importError.value = '';
-  modalMode.value = 'import';
-  modalTitle.value = 'Import Rule';
-  showModal.value = true;
-};
-
-const processImport = () => {
-  try {
-    const ruleConfig = JSON.parse(importData.value);
-
-    // Validate the input
-    if (!ruleConfig.nodes || !ruleConfig.edges ||
-      !Array.isArray(ruleConfig.nodes) || !Array.isArray(ruleConfig.edges)) {
-      importError.value = 'Invalid rule configuration format';
-      return;
+function saveRule(rule) {
+  // Handle API save here
+  // For demo, just update local array
+  if (rule.id) {
+    // Update existing rule
+    const index = rules.value.findIndex(r => r.id === rule.id);
+    if (index !== -1) {
+      rules.value[index] = rule;
     }
-
-    // Clear the canvas
-    ruleBuilder.value.clearCanvas();
-
-    // Import the nodes and edges
-    ruleBuilder.value.importRuleConfig(ruleConfig);
-
-    // Close the modal
-    closeModal();
-  } catch (error) {
-    importError.value = 'Error parsing JSON: ' + error.message;
+  } else {
+    // Add new rule with generated ID
+    rule.id = `rule_${Date.now()}`;
+    rules.value.push(rule);
   }
-};
 
-const copyToClipboard = () => {
-  navigator.clipboard.writeText(exportData.value)
-    .then(() => {
-      alert('Copied to clipboard!');
-    })
-    .catch(err => {
-      console.error('Failed to copy: ', err);
-    });
-};
+  showRuleList.value = true;
+}
 
-const closeModal = () => {
-  showModal.value = false;
-};
+function deleteRule(rule) {
+  // Handle API delete here
+  // For demo, just update local array
+  const index = rules.value.findIndex(r => r.id === rule.id);
+  if (index !== -1) {
+    rules.value.splice(index, 1);
+  }
+}
 
-onMounted(() => {
-  console.log('App mounted');
-});
+function toggleRuleStatus(rule, configKey, status) {
+  // Handle API update here
+  // For demo, just update local array
+  const index = rules.value.findIndex(r => r.id === rule.id);
+  if (index !== -1) {
+    rules.value[index].enabled = status;
+  }
+}
+
+function cancelEdit() {
+  showRuleList.value = true;
+}
 </script>
 
-<style>
-body {
-  margin: 0;
-  padding: 0;
-  font-family: Arial, sans-serif;
+<!-- Continuing src/views/RuleBuilderPage.vue -->
+<style scoped>
+.rule-builder-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.app {
-  width: 100%;
-  height: 100vh;
+.page-header {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
 }
 
-.app-header {
-  background-color: #001529;
-  color: white;
+.page-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+.toggle-btn {
   padding: 10px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.app-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.action-button {
-  padding: 8px 16px;
-  background-color: #1890ff;
+  background-color: #4299e1;
   color: white;
   border: none;
   border-radius: 4px;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
-.action-button:hover {
-  background-color: #40a9ff;
+.toggle-btn:hover {
+  background-color: #3182ce;
 }
 
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background-color: #fff;
-  padding: 20px;
+.rule-list-container, .rule-editor-container {
+  background-color: white;
   border-radius: 8px;
-  width: 80%;
-  max-width: 600px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 24px;
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-}
-
-.export-textarea, .import-textarea {
-  width: 100%;
-  height: 200px;
-  margin-bottom: 10px;
-  padding: 10px;
-  font-family: monospace;
-  resize: none;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-}
-
-.copy-button, .import-button {
-  padding: 8px 16px;
-  background-color: #1890ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.copy-button:hover, .import-button:hover {
-  background-color: #40a9ff;
-}
-
-.error-message {
-  color: #f5222d;
-  margin-bottom: 10px;
+.rule-list-container h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #2d3748;
 }
 </style>
