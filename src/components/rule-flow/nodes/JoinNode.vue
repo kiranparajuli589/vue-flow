@@ -4,7 +4,14 @@
     class="join-node"
     :class="{ 'error': isInvalid }"
   >
-    <div class="handle handle-target" v-handle-target />
+    <div class="node-header">
+      <span class="node-title">Join Operator</span>
+      <button @click="onRemove" class="remove-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+      </button>
+    </div>
 
     <div class="node-content">
       <select v-model="localOperator" @change="handleUpdate">
@@ -14,13 +21,9 @@
       </select>
     </div>
 
-    <div class="handle handle-source" v-handle-source />
-
-    <button @click="onRemove" class="remove-btn">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-      </svg>
-    </button>
+    <!-- Use the correct handle syntax as demonstrated in the Vue Flow example -->
+    <div class="vue-flow__handle vue-flow__handle-top" data-type="target" data-handle-id="target"></div>
+    <div class="vue-flow__handle vue-flow__handle-bottom" data-type="source" data-handle-id="source"></div>
   </div>
 </template>
 
@@ -56,8 +59,8 @@ function handleUpdate() {
     operator: localOperator.value
   };
 
-  updateNode({
-    id: props.id,
+  // Correct updateNode usage
+  updateNode(props.id, {
     data: updatedData
   });
 
@@ -85,13 +88,11 @@ watch(() => props.data, (newData) => {
 .join-node {
   background-color: #ebf8ff;
   border: 1px solid #63b3ed;
-  border-radius: 50%;
-  width: 70px;
-  height: 70px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  border-radius: 8px;
+  width: 180px; /* Rectangular design */
+  padding: 12px;
   position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .join-node.error {
@@ -99,63 +100,60 @@ watch(() => props.data, (newData) => {
   background-color: #fff5f5;
 }
 
-.node-content {
-  width: 100%;
+.node-header {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #bee3f8;
 }
 
-.join-node select {
-  width: 80%;
-  padding: 4px;
-  border: 1px solid #63b3ed;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: bold;
-  text-align: center;
-  background-color: white;
+.node-title {
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 14px;
 }
 
 .remove-btn {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background-color: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 50%;
+  background: none;
+  border: none;
   color: #a0aec0;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   cursor: pointer;
-  padding: 0;
+  padding: 4px;
 }
 
 .remove-btn:hover {
   color: #f56565;
-  border-color: #f56565;
 }
 
-.handle {
-  width: 12px;
-  height: 12px;
-  background-color: #4299e1;
-  border-radius: 50%;
+.node-content {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
 }
 
-.handle-target {
-  position: absolute;
+.join-node select {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #63b3ed;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: white;
+}
+
+/* Vue Flow handle styles */
+.vue-flow__handle-top {
   top: -6px;
   left: 50%;
   transform: translateX(-50%);
+  position: absolute;
 }
 
-.handle-source {
-  position: absolute;
+.vue-flow__handle-bottom {
   bottom: -6px;
   left: 50%;
   transform: translateX(-50%);
+  position: absolute;
 }
 </style>

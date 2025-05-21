@@ -5,9 +5,8 @@
     :class="{ 'error': hasError }"
   >
     <div class="node-header">
-      <div class="handle handle-target" v-handle-target />
       <span class="node-title">Condition</span>
-      <button v-if="!isStartNode" @click="onRemove" class="remove-btn">
+      <button @click="onRemove" class="remove-btn">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
         </svg>
@@ -37,6 +36,7 @@
         <label>Value</label>
         <input
           v-model="localData.value"
+          @input="handleUpdate"
           @blur="validateAndUpdate"
           :placeholder="getFieldMeta.placeholder || 'Enter value'"
         />
@@ -46,13 +46,15 @@
       </div>
     </div>
 
-    <div class="handle handle-source" v-handle-source />
+    <!-- Use the correct handle syntax as demonstrated in the Vue Flow example -->
+    <div class="vue-flow__handle vue-flow__handle-top" data-type="target" data-handle-id="target"></div>
+    <div class="vue-flow__handle vue-flow__handle-bottom" data-type="source" data-handle-id="source"></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useVueFlow, NodeProps } from '@vue-flow/core';
+import { useVueFlow } from '@vue-flow/core';
 import { ConditionData, FieldType, OperatorType, NodeType } from '@/types/rule-builder';
 import { useConditionService } from '@/composables/useConditionService';
 
@@ -91,24 +93,33 @@ const isStartNode = computed(() => {
   return nodes.length === 1 || !edges.some(edge => edge.target === props.id);
 });
 
-function validateAndUpdate() {
-  const fieldMeta = getFieldMeta.value;
-  const error = validateField(localData.value.field, localData.value.value);
-
-  localData.value.error = error;
-  handleUpdate();
-}
-
+// Update node data without validation
 function handleUpdate() {
-  const updatedData = { ...localData.value };
-  updateNode({
-    id: props.id,
-    data: updatedData
+  // Correct updateNode usage
+  updateNode(props.id, {
+    data: { ...localData.value }
   });
+
   emit('nodeUpdate', {
     id: props.id,
-    data: updatedData
+    data: { ...localData.value }
   });
+}
+
+// Validate the value and update node
+function validateAndUpdate() {
+  const error = validateField(localData.value.field, localData.value.value);
+
+  // Update local error state
+  localData.value.error = error;
+
+  // Correct updateNode usage
+  updateNode(props.id, {
+    data: { ...localData.value }
+  });
+
+  // Emit the update event
+  handleUpdate();
 }
 
 function onRemove() {
@@ -133,6 +144,7 @@ watch(() => props.data, (newData) => {
   padding: 12px;
   width: 280px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
 .condition-node.error {
@@ -144,11 +156,14 @@ watch(() => props.data, (newData) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .node-title {
   font-weight: 600;
   color: #4a5568;
+  font-size: 14px;
 }
 
 .remove-btn {
@@ -194,24 +209,18 @@ watch(() => props.data, (newData) => {
   margin-top: 4px;
 }
 
-.handle {
-  width: 12px;
-  height: 12px;
-  background-color: #4299e1;
-  border-radius: 50%;
-}
-
-.handle-target {
-  position: absolute;
+/* Vue Flow handle styles - consistent with other nodes */
+.vue-flow__handle-top {
   top: -6px;
   left: 50%;
   transform: translateX(-50%);
+  position: absolute;
 }
 
-.handle-source {
-  position: absolute;
+.vue-flow__handle-bottom {
   bottom: -6px;
   left: 50%;
   transform: translateX(-50%);
+  position: absolute;
 }
 </style>

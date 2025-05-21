@@ -1,88 +1,22 @@
 <!-- src/components/rule-flow/RuleFlowBuilder.vue -->
 <template>
   <div class="rule-flow-builder">
-    <div class="sidebar">
-      <div class="sidebar-title">Rule Elements</div>
-      <div
-        class="dnd-item condition-item"
-        draggable="true"
-        @dragstart="onDragStart($event, 'condition')"
-      >
-        Condition
-      </div>
-      <div
-        class="dnd-item join-item"
-        draggable="true"
-        @dragstart="onDragStart($event, 'join')"
-      >
-        Join (AND/OR)
-      </div>
-      <div
-        class="dnd-item bracket-item"
-        draggable="true"
-        @dragstart="onDragStart($event, 'bracket')"
-      >
-        Bracket
-      </div>
-    </div>
+    <FlowSidebar :on-drag-start="onDragStart" />
 
     <div class="flow-container">
       <vue-flow
         v-model="elements"
-        @drop="onDrop"
         @dragover="onDragOver"
-        @connect="handleConnect"
-        @node-drag-stop="onNodeDragStop"
-        @pane-click="onPaneClick"
-        @edge-update="onEdgeUpdate"
-        @edge-update-end="onEdgeUpdateEnd"
-        @edge-update-start="onEdgeUpdateStart"
+        @dragLeave="onDragLeave"
       >
-        <template #node-condition="nodeProps">
-          <condition-node
-            v-bind="nodeProps"
-            @node-update="onNodeUpdate"
-            @node-remove="onNodeRemove"
-          />
-        </template>
-
-        <template #node-join="nodeProps">
-          <join-node
-            v-bind="nodeProps"
-            @node-update="onNodeUpdate"
-            @node-remove="onNodeRemove"
-          />
-        </template>
-
-        <template #node-bracketOpen="nodeProps">
-          <bracket-node
-            v-bind="nodeProps"
-            @node-update="onNodeUpdate"
-            @node-remove="onNodeRemove"
-          />
-        </template>
-
-        <template #node-bracketClose="nodeProps">
-          <bracket-node
-            v-bind="nodeProps"
-            @node-update="onNodeUpdate"
-            @node-remove="onNodeRemove"
-          />
-        </template>
-
-        <template #edge-default="{ id, source, target, selected }">
-          <base-edge
-            :id="id"
-            :source="source"
-            :target="target"
-            :selected="selected"
-            :markerEnd="{ type: 'arrow', width: 20, height: 20 }"
-          />
-        </template>
-
-        <background />
-        <controls />
-        <mini-map />
+        <DropzoneBackground
+          :style="{
+          backgroundColor: isDragOver ? '#e7f3ff' : 'transparent',
+          transition: 'background-color 0.2s ease',
+        }"
+        >
+          <p v-if="isDragOver">Drop here</p>
+        </DropzoneBackground>
       </vue-flow>
     </div>
   </div>
@@ -96,241 +30,56 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import {
   VueFlow, useVueFlow,
-  NodeMouseEvent, Connection, Edge, BaseEdge
 } from '@vue-flow/core';
-import { Background } from '@vue-flow/background'
-import { Controls } from '@vue-flow/controls';
-import { MiniMap } from '@vue-flow/minimap';
-
 import { FieldType, OperatorType, JoinOperatorType, NodeType } from '@/types/rule-builder';
-import ConditionNode from './nodes/ConditionNode.vue';
-import JoinNode from './nodes/JoinNode.vue';
-import BracketNode from './nodes/BracketNode.vue';
 import RulePreview from './RulePreview.vue';
-import { generateUniqueId } from '@/utils/helpers';
+import { useDragAndDrop } from '@/composables/useDragAndDrop';
+import FlowSidebar from '@/components/rule-flow/FlowSidebar.vue'
+import DropzoneBackground from '@/components/rule-flow/DropzoneBackground.vue'
 
-// Props and emits
 const props = defineProps<{
   initialRule?: any; // Initial rule data (if importing)
+  modelValue?: any; // v-model support
 }>();
 
-const emit = defineEmits(['update:rule', 'validate']);
+const emit = defineEmits(['update:rule', 'validate', 'update:modelValue']);
 
 // Setup vue-flow
-const elements = ref([]);
+const elements = ref<any[]>([]);
 const {
-  addNodes,
+  onConnect,
   addEdges,
   getNodes,
   getEdges,
-  findNode
+  findNode,
+  addNodes,
 } = useVueFlow();
 
-// Methods for drag & drop
-function onDragStart(event: DragEvent, type: string) {
-  if (event.dataTransfer) {
-    event.dataTransfer.setData('application/vueflow', type);
-    event.dataTransfer.effectAllowed = 'move';
-  }
-}
+// Set up drag and drop
+const {
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+} = useDragAndDrop();
 
-function onDragOver(event: DragEvent) {
-  if (event.preventDefault) {
-    event.preventDefault();
-  }
+onConnect((params) => {
+  console.log('Connection created:', params);
+  addEdges([
+    {
+      ...params,
+      animated: false,
+      style: { stroke: '#4299e1', strokeWidth: 2 },
+    },
+  ]);
 
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'move';
-  }
-
-  return false;
-}
-
-function onDrop(event: DragEvent) {
-  if (!event.dataTransfer) return;
-
-  const type = event.dataTransfer.getData('application/vueflow');
-  const vueFlowBounds = event.target.getBoundingClientRect();
-  const position = {
-    x: event.clientX - vueFlowBounds.left,
-    y: event.clientY - vueFlowBounds.top,
-  };
-
-  createNode(type, position);
-}
-
-function createNode(type: string, position = { x: 0, y: 0 }) {
-  const id = generateUniqueId();
-  let nodeType: NodeType;
-  let nodeData: any = {};
-
-  switch (type) {
-    case 'condition':
-      nodeType = NodeType.CONDITION;
-      nodeData = {
-        field: FieldType.URI_PATH,
-        operator: OperatorType.EQUALS,
-        value: ''
-      };
-      break;
-    case 'join':
-      nodeType = NodeType.JOIN;
-      nodeData = {
-        operator: JoinOperatorType.AND
-      };
-      break;
-    case 'bracket':
-      nodeType = NodeType.BRACKET_OPEN;
-      nodeData = {
-        isOpening: true
-      };
-      break;
-    default:
-      return;
-  }
-
-  const newNode = {
-    id,
-    type: nodeType,
-    position,
-    data: nodeData,
-    draggable: true
-  };
-
-  addNodes([newNode]);
-
-  // Auto-connect to the last node if applicable
-  autoConnectNodes(id);
-
+  // Update the rule after a new connection
   updateRule();
-}
+});
 
-function autoConnectNodes(newNodeId: string) {
-  const nodes = getNodes.value;
-  const edges = getEdges.value;
-
-  // Skip if there's only one node
-  if (nodes.length <= 1) return;
-
-  // Find nodes without outgoing connections
-  const terminatingNodes = nodes.filter(node => {
-    return !edges.some(edge => edge.source === node.id) && node.id !== newNodeId;
-  });
-
-  if (terminatingNodes.length === 1) {
-    const source = terminatingNodes[0].id;
-    const target = newNodeId;
-
-    // Only connect if valid connection type
-    if (isValidConnection(source, target)) {
-      addEdges([{
-        id: `e-${source}-${target}`,
-        source,
-        target,
-        type: 'default',
-        animated: false
-      }]);
-    }
-  }
-}
-
-function isValidConnection(source: string, target: string) {
-  const sourceNode = findNode(source);
-  const targetNode = findNode(target);
-
-  if (!sourceNode || !targetNode) return false;
-
-  // Condition can only connect to Join
-  if (sourceNode.type === NodeType.CONDITION && targetNode.type !== NodeType.JOIN) {
-    return false;
-  }
-
-  // Join can connect to Condition or Bracket
-  if (sourceNode.type === NodeType.JOIN &&
-    (targetNode.type !== NodeType.CONDITION &&
-      targetNode.type !== NodeType.BRACKET_OPEN)) {
-    return false;
-  }
-
-  // Opening Bracket can connect to Condition or Join
-  if (sourceNode.type === NodeType.BRACKET_OPEN &&
-    (targetNode.type !== NodeType.CONDITION &&
-      targetNode.type !== NodeType.JOIN)) {
-    return false;
-  }
-
-  // Closing Bracket can't have outgoing connections
-  if (sourceNode.type === NodeType.BRACKET_CLOSE) {
-    return false;
-  }
-
-  return true;
-}
-
-function handleConnect(connection: Connection) {
-  // Check if the connection is valid
-  if (isValidConnection(connection.source, connection.target)) {
-    addEdges([{
-      ...connection,
-      id: `e-${connection.source}-${connection.target}`,
-      type: 'default',
-      animated: false
-    }]);
-
-    updateRule();
-  }
-}
-
-function onNodeUpdate(nodeData: any) {
-  updateRule();
-}
-
-function onNodeRemove(nodeId: string) {
-  // Find and remove the node
-  const nodes = getNodes.value.filter(n => n.id !== nodeId);
-  const edges = getEdges.value.filter(e => e.source !== nodeId && e.target !== nodeId);
-
-  // Update the flow
-  elements.value = [...nodes, ...edges];
-
-  updateRule();
-}
-
-function onNodeDragStop(event: NodeMouseEvent) {
-  updateRule();
-}
-
-function onPaneClick() {
-  // Deselect all nodes when clicking on the pane
-  // This can be used to reset any selected state
-}
-
-function onEdgeUpdate(oldEdge: Edge, newConnection: Connection) {
-  if (isValidConnection(newConnection.source, newConnection.target)) {
-    const edges = getEdges.value.filter(e => e.id !== oldEdge.id);
-    const newEdge = {
-      ...oldEdge,
-      ...newConnection,
-      id: `e-${newConnection.source}-${newConnection.target}`
-    };
-
-    elements.value = [...getNodes.value, ...edges, newEdge];
-    updateRule();
-  }
-}
-
-function onEdgeUpdateStart() {
-  // Handle edge update start if needed
-}
-
-function onEdgeUpdateEnd() {
-  // Handle edge update end if needed
-}
-
-// Convert the flow to a rule structure
 function convertFlowToRule() {
   const nodes = getNodes.value;
   const edges = getEdges.value;
@@ -494,6 +243,12 @@ function buildConditionsArray(nodeId: string, visitedNodes = new Set()) {
 // Update the rule when the flow changes
 function updateRule() {
   const rule = convertFlowToRule();
+
+  // Update v-model if provided
+  if (props.modelValue !== undefined) {
+    emit('update:modelValue', rule);
+  }
+
   emit('update:rule', rule);
 
   // Validate the rule
@@ -552,194 +307,47 @@ function importRule(rule: any) {
   createNodesFromConditions(rule.create_pattern.conditions, positions);
 }
 
-// Recursively create nodes from conditions
-function createNodesFromConditions(
-  conditions: any[],
-  positions: Record<string, { x: number; y: number }>,
-  parentId?: string,
-  startX = 50,
-  startY = 50,
-  horizontalGap = 200,
-  verticalGap = 150
-) {
-  if (!conditions || conditions.length === 0) return;
-
-  let currentX = startX;
-  let currentY = startY;
-  let prevNodeId = parentId;
-
-  for (let i = 0; i < conditions.length; i++) {
-    const condition = conditions[i];
-    const id = generateUniqueId();
-
-    if (condition.isGroup) {
-      // Create opening bracket
-      const openingBracketId = `bracket-open-${id}`;
-      const openingBracketPos = positions[openingBracketId] || { x: currentX, y: currentY };
-
-      addNodes([{
-        id: openingBracketId,
-        type: NodeType.BRACKET_OPEN,
-        position: openingBracketPos,
-        data: { isOpening: true },
-        draggable: true
-      }]);
-
-      if (prevNodeId) {
-        // If there's a previous node, add join node first
-        const joinId = `join-${prevNodeId}-${openingBracketId}`;
-        const joinPos = positions[joinId] || {
-          x: (openingBracketPos.x + currentX) / 2,
-          y: currentY
-        };
-
-        addNodes([{
-          id: joinId,
-          type: NodeType.JOIN,
-          position: joinPos,
-          data: { operator: condition.joinOperator || JoinOperatorType.AND },
-          draggable: true
-        }]);
-
-        // Connect previous node -> join -> opening bracket
-        addEdges([
-          {
-            id: `e-${prevNodeId}-${joinId}`,
-            source: prevNodeId,
-            target: joinId,
-            type: 'default'
-          },
-          {
-            id: `e-${joinId}-${openingBracketId}`,
-            source: joinId,
-            target: openingBracketId,
-            type: 'default'
-          }
-        ]);
-      }
-
-      // Recursively create nodes for conditions inside the group
-      createNodesFromConditions(
-        condition.conditions,
-        positions,
-        openingBracketId,
-        currentX + horizontalGap,
-        currentY,
-        horizontalGap,
-        verticalGap
-      );
-
-      // Create closing bracket
-      const closingBracketId = `bracket-close-${id}`;
-      const closingBracketPos = positions[closingBracketId] || {
-        x: currentX + horizontalGap,
-        y: currentY + (condition.conditions.length * verticalGap) + 100
-      };
-
-      addNodes([{
-        id: closingBracketId,
-        type: NodeType.BRACKET_CLOSE,
-        position: closingBracketPos,
-        data: { isOpening: false, pairedNodeId: openingBracketId },
-        draggable: true
-      }]);
-
-      // Update the opening bracket with paired ID
-      const openingBracket = findNode(openingBracketId);
-      if (openingBracket) {
-        openingBracket.data.pairedNodeId = closingBracketId;
-      }
-
-      // Connect the last node inside the group to the closing bracket
-      const innerNodes = getNodes.value.filter(n =>
-        n.position.x > openingBracketPos.x &&
-        n.position.x < closingBracketPos.x &&
-        n.position.y > openingBracketPos.y &&
-        n.position.y < closingBracketPos.y
-      );
-
-      if (innerNodes.length > 0) {
-        const terminalInnerNodes = innerNodes.filter(n =>
-          !getEdges.value.some(e => e.source === n.id)
-        );
-
-        if (terminalInnerNodes.length > 0) {
-          addEdges([{
-            id: `e-${terminalInnerNodes[0].id}-${closingBracketId}`,
-            source: terminalInnerNodes[0].id,
-            target: closingBracketId,
-            type: 'default'
-          }]);
-        }
-      }
-
-      prevNodeId = closingBracketId;
-      currentY += (condition.conditions.length * verticalGap) + 200;
-    } else {
-      // Create condition node
-      const conditionId = `condition-${id}`;
-      const conditionPos = positions[conditionId] || { x: currentX, y: currentY };
-
-      addNodes([{
-        id: conditionId,
-        type: NodeType.CONDITION,
-        position: conditionPos,
-        data: {
-          field: condition.field,
-          operator: condition.operator,
-          value: condition.value
-        },
-        draggable: true
-      }]);
-
-      if (prevNodeId) {
-        // If there's a previous node, add join node first
-        const joinId = `join-${prevNodeId}-${conditionId}`;
-        const joinPos = positions[joinId] || {
-          x: (conditionPos.x + currentX) / 2,
-          y: currentY
-        };
-
-        addNodes([{
-          id: joinId,
-          type: NodeType.JOIN,
-          position: joinPos,
-          data: { operator: condition.joinOperator || JoinOperatorType.AND },
-          draggable: true
-        }]);
-
-        // Connect previous node -> join -> condition
-        addEdges([
-          {
-            id: `e-${prevNodeId}-${joinId}`,
-            source: prevNodeId,
-            target: joinId,
-            type: 'default'
-          },
-          {
-            id: `e-${joinId}-${conditionId}`,
-            source: joinId,
-            target: conditionId,
-            type: 'default'
-          }
-        ]);
-      }
-
-      prevNodeId = conditionId;
-      currentY += verticalGap;
-    }
-  }
-}
-
-// Initialize with any provided rule
+// Initialize
 onMounted(() => {
+  // Register connection handlers
+
+  // Initialize with any provided rule
   if (props.initialRule) {
     importRule(props.initialRule);
   } else {
     // Start with a single condition node
-    createNode('condition', { x: 250, y: 100 });
+    addNodes([{
+      id: 'start-condition',
+      type: NodeType.CONDITION,
+      position: { x: 250, y: 100 },
+      data: {
+        field: FieldType.URI_PATH,
+        operator: OperatorType.EQUALS,
+        value: ''
+      },
+    }]);
   }
+
+  // Log initial state for debugging
+  setTimeout(() => {
+    console.log('Initial nodes:', getNodes.value);
+    console.log('Initial edges:', getEdges.value);
+  }, 500);
 });
+
+// Watch for changes to the initialRule prop
+watch(() => props.initialRule, (newValue) => {
+  if (newValue) {
+    importRule(newValue);
+  }
+}, { deep: true });
+
+// Watch for external v-model changes
+watch(() => props.modelValue, (newValue) => {
+  if (newValue && JSON.stringify(newValue) !== JSON.stringify(convertFlowToRule())) {
+    importRule(newValue);
+  }
+}, { deep: true });
 </script>
 
 <style>
@@ -756,6 +364,7 @@ onMounted(() => {
   background-color: #f8fafc;
   border-right: 1px solid #e2e8f0;
   padding: 16px;
+  z-index: 5;
 }
 
 .sidebar-title {
@@ -796,6 +405,7 @@ onMounted(() => {
 .flow-container {
   flex-grow: 1;
   height: 100%;
+  position: relative;
 }
 
 .preview-panel {
@@ -803,5 +413,43 @@ onMounted(() => {
   padding: 16px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
+}
+
+/* Fix node sizes */
+.vue-flow__node-condition {
+  width: fit-content;
+}
+
+/* Vue Flow handle styles */
+.vue-flow__handle {
+  width: 12px !important;
+  height: 12px !important;
+  background-color: #4299e1 !important;
+  border: 2px solid white !important;
+  border-radius: 50% !important;
+}
+
+.vue-flow__handle:hover {
+  background-color: #2b6cb0 !important;
+}
+
+/* Edge styles */
+.vue-flow__edge path {
+  stroke: #4299e1;
+  stroke-width: 2;
+}
+
+.vue-flow__edge.selected path {
+  stroke: #805ad5;
+  stroke-width: 3;
+}
+
+.vue-flow__connection-path {
+  stroke: #4299e1;
+  stroke-width: 2;
+}
+
+.vue-flow__edge-text {
+  font-size: 12px;
 }
 </style>

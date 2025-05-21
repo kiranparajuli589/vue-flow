@@ -4,7 +4,14 @@
     class="bracket-node"
     :class="{ 'opening': isOpening, 'closing': !isOpening, 'error': !isPaired }"
   >
-    <div class="handle handle-target" v-if="!isOpening" v-handle-target />
+    <div class="node-header">
+      <span class="node-title">Bracket</span>
+      <button @click="onRemove" class="remove-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+      </button>
+    </div>
 
     <div class="node-content">
       <span class="bracket-symbol">{{ isOpening ? '(' : ')' }}</span>
@@ -14,13 +21,9 @@
       </select>
     </div>
 
-    <div class="handle handle-source" v-if="isOpening" v-handle-source />
-
-    <button @click="onRemove" class="remove-btn">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-      </svg>
-    </button>
+    <!-- Use the correct handle syntax for brackets -->
+    <div v-if="!isOpening" class="vue-flow__handle vue-flow__handle-top" data-type="target" data-handle-id="target"></div>
+    <div v-if="isOpening" class="vue-flow__handle vue-flow__handle-bottom" data-type="source" data-handle-id="source"></div>
   </div>
 </template>
 
@@ -66,8 +69,8 @@ function handleUpdateNode() {
     pairedNodeId: props.data.pairedNodeId
   };
 
-  updateNode({
-    id: props.id,
+  // Correct updateNode usage
+  updateNode(props.id, {
     type: localIsOpening.value ? 'bracketOpen' : 'bracketClose',
     data: updatedData
   });
@@ -102,14 +105,10 @@ watch(() => props.data, (newData) => {
   background-color: #faf5ff;
   border: 1px solid #d6bcfa;
   border-radius: 8px;
-  width: 120px;
-  height: 80px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  width: 150px;
+  padding: 12px;
   position: relative;
-  padding: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .bracket-node.opening {
@@ -123,6 +122,21 @@ watch(() => props.data, (newData) => {
 .bracket-node.error {
   border-color: #f56565;
   background-color: #fff5f5;
+}
+
+.node-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #d6bcfa;
+}
+
+.node-title {
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 14px;
 }
 
 .node-content {
@@ -140,54 +154,38 @@ watch(() => props.data, (newData) => {
 
 .bracket-type {
   width: 100%;
-  padding: 4px;
+  padding: 6px 10px;
   border: 1px solid #d6bcfa;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 14px;
   text-align: center;
   background-color: white;
 }
 
 .remove-btn {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background-color: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 50%;
+  background: none;
+  border: none;
   color: #a0aec0;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   cursor: pointer;
-  padding: 0;
+  padding: 4px;
 }
 
 .remove-btn:hover {
   color: #f56565;
-  border-color: #f56565;
 }
 
-.handle {
-  width: 12px;
-  height: 12px;
-  background-color: #805ad5;
-  border-radius: 50%;
-}
-
-.handle-target {
-  position: absolute;
+/* Vue Flow handle styles */
+.vue-flow__handle-top {
   top: -6px;
   left: 50%;
   transform: translateX(-50%);
+  position: absolute;
 }
 
-.handle-source {
-  position: absolute;
+.vue-flow__handle-bottom {
   bottom: -6px;
   left: 50%;
   transform: translateX(-50%);
+  position: absolute;
 }
 </style>
