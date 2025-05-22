@@ -7,6 +7,10 @@ export enum NodeType {
   BRACKET_CLOSE = 'bracketClose'
 }
 
+export enum EdgeType {
+  JOIN = 'default'
+}
+
 export enum FieldType {
   URI_PATH = 'req.uri.path',
   METHOD = 'req.method',

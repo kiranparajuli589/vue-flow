@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import useDragAndDrop from '@/composables/useDragAndDrop'
-
+import { NodeType } from '@/types/rule-builder'
 const { onDragStart } = useDragAndDrop()
 </script>
 
@@ -12,7 +12,7 @@ const { onDragStart } = useDragAndDrop()
     <div
       class="dnd-item condition-item"
       draggable="true"
-      @dragstart="onDragStart($event, 'condition')"
+      @dragstart="onDragStart($event, NodeType.CONDITION)"
     >
       <img src="@/assets/icons/condition.svg" alt="Condition" class="icon" />
       <span>Condition</span>
@@ -21,10 +21,19 @@ const { onDragStart } = useDragAndDrop()
     <div
       class="dnd-item bracket-item"
       draggable="true"
-      @dragstart="onDragStart($event, 'bracket')"
+      @dragstart="onDragStart($event, NodeType.BRACKET_OPEN)"
     >
       <img src="@/assets/icons/bracket.svg" alt="Bracket" class="icon" />
-      <span>Bracket</span>
+      <span>Bracket Open</span>
+    </div>
+
+    <div
+      class="dnd-item bracket-item"
+      draggable="true"
+      @dragstart="onDragStart($event, NodeType.BRACKET_CLOSE)"
+    >
+      <img src="@/assets/icons/bracket.svg" alt="Bracket" class="icon" />
+      <span>Bracket Close</span>
     </div>
 
     <div class="info-box">

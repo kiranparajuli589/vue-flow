@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 import { type Edge, useVueFlow } from '@vue-flow/core'
-import { NodeType, FieldType, OperatorType, JoinOperatorType } from '@/types/rule-builder';
+import { NodeType, FieldType, OperatorType, JoinOperatorType, EdgeType } from '@/types/rule-builder';
 import type { RuleOutput, FlowNode, FlowEdge } from '@/types/rule-builder';
 import { generateUniqueId } from '@/utils/helpers';
 
@@ -67,25 +67,6 @@ export function useRuleService() {
       message: 'Rule is valid'
     };
   });
-
-  /**
-   * Create a default edge with AND operator
-   */
-  function createDefaultEdge(source: string, target: string): Edge {
-    const edgeId = `edge-${generateUniqueId()}`;
-    const operator = JoinOperatorType.AND;
-
-    return {
-      id: edgeId,
-      source,
-      target,
-      label: operator,
-      labelBgStyle: { fill: '#f0f9ff', fillOpacity: 0.9 },
-      labelStyle: { fontWeight: 700, fill: '#4299e1' },
-      data: { operator },
-      style: { stroke: '#4299e1', strokeWidth: 2 },
-    };
-  }
 
   /**
    * Converts the flow structure to a rule format
@@ -454,6 +435,23 @@ export function useRuleService() {
         value: ''
       },
     }]);
+  }
+
+  function createDefaultEdge(source: string, target: string): Edge {
+    const edgeId = `edge-${generateUniqueId()}`;
+    const operator = JoinOperatorType.AND;
+  
+    return {
+      id: edgeId,
+      source,
+      target,
+      type: EdgeType.JOIN, // Add this line
+      label: operator,
+      labelBgStyle: { fill: '#f0f9ff', fillOpacity: 0.9 },
+      labelStyle: { fontWeight: 700, fill: '#4299e1' },
+      data: { operator },
+      style: { stroke: '#4299e1', strokeWidth: 2 },
+    };
   }
 
   return {

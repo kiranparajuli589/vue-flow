@@ -4,9 +4,7 @@ import ConditionNode from './ConditionNode.vue';
 import BracketNode from './BracketNode.vue';
 
 const nodeTypes = {
-  [NodeType.CONDITION]: markRaw(defineComponent({
-    extends: ConditionNode
-  })),
+  [NodeType.CONDITION]: markRaw(ConditionNode),
   [NodeType.BRACKET_OPEN]: markRaw(defineComponent({
     extends: BracketNode,
     props: {

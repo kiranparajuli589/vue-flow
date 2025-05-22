@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
-import DropzoneBackground from './DropzoneBackground.vue'
-import Sidebar from './FlowSidebar.vue'
+import { useRuleService } from '@/composables/useRuleService'
 import useDragAndDrop from '@/composables/useDragAndDrop'
-import ConditionNode from './nodes/ConditionNode.vue'
-import BracketNode from './nodes/BracketNode.vue'
-import JoinEdge from './edges/JoinEdge.vue'
+import Sidebar from './FlowSidebar.vue'
+import DropzoneBackground from './DropzoneBackground.vue'
+
+import edgeTypes from './edges'
+import nodeTypes from './nodes'
+
+const { createDefaultEdge } = useRuleService()
+
 const { onConnect, addEdges } = useVueFlow()
 
 const { onDragOver, onDrop, onDragLeave, isDragOver } = useDragAndDrop()
@@ -15,13 +19,10 @@ const nodes = ref([])
 const edges = ref([])
 
 
-onConnect(addEdges)
-
-// const handleConnect = (params) => {
-//   console.log('handleConnect', params)
-//   console.log('edges', edges.value)
-//   addEdges(params)
-// }
+onConnect((params) => {
+  const edge = createDefaultEdge(params.source, params.target)
+  addEdges([edge])
+})
 
 </script>
 
@@ -38,16 +39,9 @@ onConnect(addEdges)
       @dragover="onDragOver"
       @dragleave="onDragLeave"
       :edges-updatable="true"
+      :edge-types="edgeTypes"
+      :node-types="nodeTypes"
     >
-      <template #node-condition="props">
-        <ConditionNode v-bind="props" />
-      </template>
-      <template #node-bracket="props">
-        <BracketNode v-bind="props" />
-      </template>
-      <template #edge-join="props">
-        <JoinEdge v-bind="props" />
-      </template>
       <DropzoneBackground
         :style="{
           backgroundColor: isDragOver ? '#e7f3ff' : 'transparent',
