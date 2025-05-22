@@ -27,7 +27,29 @@ export function useRuleService() {
       return EdgeType.SIMPLE; // Default fallback
     }
 
-    // If specific handles are used, determine type based on handle IDs
+    // BRACKET-SPECIFIC RULES (highest priority)
+    
+    // Rule 1: → Opening Bracket (incoming) = JOIN edge
+    if (targetNode.type === NodeType.BRACKET_OPEN) {
+      return EdgeType.JOIN;
+    }
+    
+    // Rule 2: Opening Bracket → (outgoing) = SIMPLE edge
+    if (sourceNode.type === NodeType.BRACKET_OPEN) {
+      return EdgeType.SIMPLE;
+    }
+    
+    // Rule 3: → Closing Bracket (incoming) = SIMPLE edge
+    if (targetNode.type === NodeType.BRACKET_CLOSE) {
+      return EdgeType.SIMPLE;
+    }
+    
+    // Rule 4: Closing Bracket → (outgoing) = JOIN edge
+    if (sourceNode.type === NodeType.BRACKET_CLOSE) {
+      return EdgeType.JOIN;
+    }
+
+    // HANDLE-SPECIFIC RULES (for condition-to-condition connections)
     if (sourceHandle && targetHandle) {
       // Join edge if using left/right handles (green handles)
       if ((sourceHandle === 'right' || sourceHandle === 'left') && 
@@ -42,15 +64,7 @@ export function useRuleService() {
       }
     }
 
-    // Fallback to node type-based determination
-    // Simple edge cases (bracket connections)
-    if (sourceNode.type === NodeType.BRACKET_OPEN || 
-        sourceNode.type === NodeType.BRACKET_CLOSE ||
-        targetNode.type === NodeType.BRACKET_OPEN || 
-        targetNode.type === NodeType.BRACKET_CLOSE) {
-      return EdgeType.SIMPLE;
-    }
-
+    // FALLBACK RULES
     // Join edge case (condition to condition) - but only if no specific handles specified
     if (sourceNode.type === NodeType.CONDITION && 
         targetNode.type === NodeType.CONDITION && 
@@ -417,7 +431,7 @@ export function useRuleService() {
           const edge = createSmartEdge(lastNodeId, openBracketId);
           // Set the join operator if specified and it's a join edge
           if (condition.joinOperator && edge.type === EdgeType.JOIN) {
-            edge.data = { operator: condition.joinOperator };
+            edge.data = { ...edge.data, operator: condition.joinOperator };
             edge.label = condition.joinOperator;
           }
           edges.push(edge);
@@ -487,7 +501,7 @@ export function useRuleService() {
           const edge = createSmartEdge(lastNodeId, conditionId);
           // Set the join operator if specified and it's a join edge
           if (condition.joinOperator && edge.type === EdgeType.JOIN) {
-            edge.data = { operator: condition.joinOperator };
+            edge.data = { ...edge.data, operator: condition.joinOperator };
             edge.label = condition.joinOperator;
           }
           edges.push(edge);
