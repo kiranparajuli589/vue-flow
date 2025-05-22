@@ -1,3 +1,4 @@
+// src/types/rule-builder.ts
 import type { Node, Edge } from '@vue-flow/core'
 
 export enum NodeType {
@@ -8,7 +9,8 @@ export enum NodeType {
 }
 
 export enum EdgeType {
-  JOIN = 'default'
+  JOIN = 'join',
+  SIMPLE = 'simple'
 }
 
 export enum FieldType {
@@ -60,6 +62,7 @@ export interface FlowNode extends Node {
 export interface FlowEdge extends Edge {
   data?: {
     isValid: boolean;
+    operator?: JoinOperatorType;
   };
 }
 

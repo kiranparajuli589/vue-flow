@@ -1,9 +1,9 @@
+// src/composables/useRuleService.ts
 import { ref, computed } from 'vue';
 import { type Edge, useVueFlow } from '@vue-flow/core'
 import { NodeType, FieldType, OperatorType, JoinOperatorType, EdgeType } from '@/types/rule-builder';
 import type { RuleOutput, FlowNode, FlowEdge } from '@/types/rule-builder';
 import { generateUniqueId } from '@/utils/helpers';
-
 
 export function useRuleService() {
   const {
@@ -15,6 +15,89 @@ export function useRuleService() {
   } = useVueFlow();
 
   const flowValid = ref(false);
+
+  /**
+   * Determines the appropriate edge type based on source and target nodes and handles
+   */
+  function determineEdgeType(sourceNodeId: string, targetNodeId: string, sourceHandle?: string, targetHandle?: string): EdgeType {
+    const sourceNode = findNode(sourceNodeId);
+    const targetNode = findNode(targetNodeId);
+
+    if (!sourceNode || !targetNode) {
+      return EdgeType.SIMPLE; // Default fallback
+    }
+
+    // If specific handles are used, determine type based on handle IDs
+    if (sourceHandle && targetHandle) {
+      // Join edge if using left/right handles (green handles)
+      if ((sourceHandle === 'right' || sourceHandle === 'left') && 
+          (targetHandle === 'left' || targetHandle === 'right')) {
+        return EdgeType.JOIN;
+      }
+      
+      // Simple edge if using top/bottom handles (blue handles)
+      if ((sourceHandle === 'top' || sourceHandle === 'bottom') && 
+          (targetHandle === 'top' || targetHandle === 'bottom')) {
+        return EdgeType.SIMPLE;
+      }
+    }
+
+    // Fallback to node type-based determination
+    // Simple edge cases (bracket connections)
+    if (sourceNode.type === NodeType.BRACKET_OPEN || 
+        sourceNode.type === NodeType.BRACKET_CLOSE ||
+        targetNode.type === NodeType.BRACKET_OPEN || 
+        targetNode.type === NodeType.BRACKET_CLOSE) {
+      return EdgeType.SIMPLE;
+    }
+
+    // Join edge case (condition to condition) - but only if no specific handles specified
+    if (sourceNode.type === NodeType.CONDITION && 
+        targetNode.type === NodeType.CONDITION && 
+        !sourceHandle && !targetHandle) {
+      return EdgeType.JOIN;
+    }
+
+    // Default to simple for other cases
+    return EdgeType.SIMPLE;
+  }
+
+  /**
+   * Creates an edge with the appropriate type based on the connected nodes
+   */
+  function createSmartEdge(sourceNodeId: string, targetNodeId: string, sourceHandle?: string, targetHandle?: string): Edge {
+    const edgeId = `edge-${generateUniqueId()}`;
+    const edgeType = determineEdgeType(sourceNodeId, targetNodeId, sourceHandle, targetHandle);
+
+    const baseEdge = {
+      id: edgeId,
+      source: sourceNodeId,
+      target: targetNodeId,
+      type: edgeType,
+      sourceHandle,
+      targetHandle,
+    };
+
+    if (edgeType === EdgeType.JOIN) {
+      // Join edge with default AND operator
+      const operator = JoinOperatorType.AND;
+      return {
+        ...baseEdge,
+        label: operator,
+        labelBgStyle: { fill: '#f0f9ff', fillOpacity: 0.9 },
+        labelStyle: { fontWeight: 700, fill: '#4299e1' },
+        data: { operator },
+        style: { stroke: '#4299e1', strokeWidth: 2 },
+      };
+    } else {
+      // Simple edge with animation
+      return {
+        ...baseEdge,
+        animated: true,
+        style: { stroke: '#6b7280', strokeWidth: 2 },
+      };
+    }
+  }
 
   /**
    * Validates the entire rule flow
@@ -139,9 +222,10 @@ export function useRuleService() {
         return [condition];
       }
 
-      // Add join operator from the edge
-      if (outgoingEdges[0].data?.operator) {
-        condition.joinOperator = outgoingEdges[0].data.operator;
+      // Only add join operator if the edge is a JOIN type
+      const joinEdges = outgoingEdges.filter(edge => edge.type === EdgeType.JOIN);
+      if (joinEdges.length > 0 && joinEdges[0].data?.operator) {
+        condition.joinOperator = joinEdges[0].data.operator;
       }
 
       // Process the next node
@@ -168,7 +252,8 @@ export function useRuleService() {
         // Find if there's an outgoing edge from the closing bracket
         const lastBracketNode = findMatchingCloseBracket(nodeId);
         if (lastBracketNode) {
-          const bracketOutEdges = getEdges.value.filter(edge => edge.source === lastBracketNode.id);
+          const bracketOutEdges = getEdges.value.filter(edge => 
+            edge.source === lastBracketNode.id && edge.type === EdgeType.JOIN);
 
           if (bracketOutEdges.length > 0) {
             // Get the join operator from this edge
@@ -329,9 +414,9 @@ export function useRuleService() {
 
         // Connect to previous node if there is one
         if (lastNodeId) {
-          const edge = createDefaultEdge(lastNodeId, openBracketId);
-          // Set the join operator if specified
-          if (condition.joinOperator) {
+          const edge = createSmartEdge(lastNodeId, openBracketId);
+          // Set the join operator if specified and it's a join edge
+          if (condition.joinOperator && edge.type === EdgeType.JOIN) {
             edge.data = { operator: condition.joinOperator };
             edge.label = condition.joinOperator;
           }
@@ -351,7 +436,7 @@ export function useRuleService() {
 
           // Connect the inner node to the opening bracket if it's the first one
           if (newNodeId && innerLastNodeId === null) {
-            edges.push(createDefaultEdge(openBracketId, newNodeId));
+            edges.push(createSmartEdge(openBracketId, newNodeId));
           }
 
           innerLastNodeId = newNodeId;
@@ -373,10 +458,10 @@ export function useRuleService() {
 
         // Connect last inner node to closing bracket if there is one
         if (innerLastNodeId) {
-          edges.push(createDefaultEdge(innerLastNodeId, closeBracketId));
+          edges.push(createSmartEdge(innerLastNodeId, closeBracketId));
         } else {
           // If no inner conditions, connect opening directly to closing
-          edges.push(createDefaultEdge(openBracketId, closeBracketId));
+          edges.push(createSmartEdge(openBracketId, closeBracketId));
         }
 
         lastNodeId = closeBracketId;
@@ -399,9 +484,9 @@ export function useRuleService() {
 
         // Connect to previous node if there is one
         if (lastNodeId) {
-          const edge = createDefaultEdge(lastNodeId, conditionId);
-          // Set the join operator if specified
-          if (condition.joinOperator) {
+          const edge = createSmartEdge(lastNodeId, conditionId);
+          // Set the join operator if specified and it's a join edge
+          if (condition.joinOperator && edge.type === EdgeType.JOIN) {
             edge.data = { operator: condition.joinOperator };
             edge.label = condition.joinOperator;
           }
@@ -437,21 +522,9 @@ export function useRuleService() {
     }]);
   }
 
-  function createDefaultEdge(source: string, target: string): Edge {
-    const edgeId = `edge-${generateUniqueId()}`;
-    const operator = JoinOperatorType.AND;
-  
-    return {
-      id: edgeId,
-      source,
-      target,
-      type: EdgeType.JOIN, // Add this line
-      label: operator,
-      labelBgStyle: { fill: '#f0f9ff', fillOpacity: 0.9 },
-      labelStyle: { fontWeight: 700, fill: '#4299e1' },
-      data: { operator },
-      style: { stroke: '#4299e1', strokeWidth: 2 },
-    };
+  // Legacy function for backward compatibility
+  function createDefaultEdge(source: string, target: string, sourceHandle?: string, targetHandle?: string): Edge {
+    return createSmartEdge(source, target, sourceHandle, targetHandle);
   }
 
   return {
@@ -459,6 +532,8 @@ export function useRuleService() {
     importRule,
     createDefaultStartNode,
     createDefaultEdge,
+    createSmartEdge,
+    determineEdgeType,
     validateFlow,
     flowValid
   };

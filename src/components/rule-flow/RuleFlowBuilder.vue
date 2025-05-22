@@ -9,7 +9,7 @@ import DropzoneBackground from './DropzoneBackground.vue'
 import edgeTypes from './edges'
 import nodeTypes from './nodes'
 
-const { createDefaultEdge } = useRuleService()
+const { createSmartEdge } = useRuleService()
 
 const { onConnect, addEdges } = useVueFlow()
 
@@ -18,12 +18,13 @@ const { onDragOver, onDrop, onDragLeave, isDragOver } = useDragAndDrop()
 const nodes = ref([])
 const edges = ref([])
 
-
+// Handle connection with smart edge type detection
 onConnect((params) => {
-  const edge = createDefaultEdge(params.source, params.target)
+  console.log('Connection params:', params) // Debug log
+  const edge = createSmartEdge(params.source, params.target, params.sourceHandle, params.targetHandle)
+  console.log('Created edge:', edge) // Debug log
   addEdges([edge])
 })
-
 </script>
 
 <template>
@@ -48,7 +49,6 @@ onConnect((params) => {
         <div class="drop-here" v-if="isDragOver">Drop here</div>
       </DropzoneBackground>
     </VueFlow>
-
   </div>
 </template>
 

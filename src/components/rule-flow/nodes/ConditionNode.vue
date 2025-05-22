@@ -3,11 +3,6 @@
   <div v-if="isReady" class="condition-node" :class="{ 'error': !!nodeData.error }">
     <div class="node-header">
       <span class="node-title">Condition</span>
-      <button @click="onRemove" class="remove-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-        </svg>
-      </button>
     </div>
 
     <div class="node-content">
@@ -44,18 +39,45 @@
       </div>
     </div>
 
-    <!-- Vue Flow native handles -->
+    <!-- Vue Flow handles with visual indicators -->
+    <!-- Top handle - Flow input (simple connection) -->
     <Handle
+      id="top"
       type="target"
       :position="Position.Top"
       :isConnectable="true"
-      class="vf-handle target-handle"
+      class="vf-handle flow-handle target-handle"
+      :style="{ top: '-8px', left: '50%', transform: 'translateX(-50%)' }"
     />
+    
+    <!-- Bottom handle - Flow output (simple connection) -->
     <Handle
+      id="bottom"
       type="source"
       :position="Position.Bottom"
       :isConnectable="true"
-      class="vf-handle source-handle"
+      class="vf-handle flow-handle source-handle"
+      :style="{ bottom: '-8px', left: '50%', transform: 'translateX(-50%)' }"
+    />
+    
+    <!-- Left handle - Join input (join connection) -->
+    <Handle
+      id="left"
+      type="target"
+      :position="Position.Left"
+      :isConnectable="true"
+      class="vf-handle join-handle target-handle"
+      :style="{ left: '-8px', top: '50%', transform: 'translateY(-50%)' }"
+    />
+    
+    <!-- Right handle - Join output (join connection) -->
+    <Handle
+      id="right"
+      type="source"
+      :position="Position.Right"
+      :isConnectable="true"
+      class="vf-handle join-handle source-handle"
+      :style="{ right: '-8px', top: '50%', transform: 'translateY(-50%)' }"
     />
   </div>
 </template>
@@ -75,7 +97,7 @@ const props = defineProps({
   selected: { type: Boolean, default: false }
 });
 
-const emit = defineEmits(['nodeUpdate', 'nodeRemove']);
+const emit = defineEmits(['nodeUpdate']);
 const { updateNode } = useVueFlow();
 const { fields, operators, validateField } = useConditionService();
 
@@ -138,10 +160,6 @@ function validateAndUpdate() {
   handleUpdate();
 }
 
-function onRemove() {
-  emit('nodeRemove', props.id);
-}
-
 // Initialize component with data if available
 function initializeNodeData() {
   if (props.data) {
@@ -178,7 +196,7 @@ onMounted(() => {
 
 .node-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   margin-bottom: 12px;
   padding-bottom: 8px;
@@ -189,18 +207,6 @@ onMounted(() => {
   font-weight: 600;
   color: #4a5568;
   font-size: 14px;
-}
-
-.remove-btn {
-  background: none;
-  border: none;
-  color: #a0aec0;
-  cursor: pointer;
-  padding: 4px;
-}
-
-.remove-btn:hover {
-  color: #f56565;
 }
 
 .node-content {
@@ -235,27 +241,78 @@ onMounted(() => {
   margin-top: 4px;
 }
 
-/* Enhanced handle styles */
+/* Enhanced handle styles with visual indicators */
 .vf-handle {
   width: 16px !important;
   height: 16px !important;
-  background-color: #4299e1 !important;
   border: 2px solid white !important;
   border-radius: 50% !important;
   transition: all 0.2s ease;
   cursor: crosshair !important;
+  position: absolute;
 }
 
 .vf-handle:hover {
   transform: scale(1.2);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+/* Flow handles (top/bottom) - for simple connections */
+.flow-handle {
+  background-color: #4299e1 !important;
+}
+
+.flow-handle:hover {
   background-color: #2b6cb0 !important;
 }
 
-.target-handle {
-  top: -8px;
+/* Join handles (left/right) - for join connections */
+.join-handle {
+  background-color: #48bb78 !important;
 }
 
-.source-handle {
-  bottom: -8px;
+.join-handle:hover {
+  background-color: #38a169 !important;
+}
+
+/* Simple CSS tooltips that don't flicker */
+.flow-handle::before {
+  content: 'Flow';
+  position: absolute;
+  background-color: #2d3748;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 1000;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.join-handle::before {
+  content: 'AND/OR';
+  position: absolute;
+  background-color: #2d3748;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 1000;
+  top: 50%;
+  left: 120%;
+  transform: translateY(-50%);
+}
+
+.vf-handle:hover::before {
+  opacity: 1;
 }
 </style>
