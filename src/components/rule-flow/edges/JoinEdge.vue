@@ -1,52 +1,5 @@
-<!-- src/components/rule-flow/edges/JoinEdge.vue -->
-<template>
-  <BaseEdge
-    :id="id"
-    :path="edgePath"
-    :marker-end="markerEnd"
-    class="join-edge"
-    :class="{ selected }"
-    @click="onEdgeClick"
-  >
-    <!-- Edge background to make clicking easier -->
-    <path
-      :d="edgePath"
-      class="edge-interaction-path"
-      @click="onEdgeClick"
-    />
-
-    <!-- Edge label -->
-    <EdgeLabelRenderer>
-      <div
-        class="edge-label-container"
-        :style="labelPositionStyle"
-        @click.stop="showSelectMenu = !showSelectMenu"
-      >
-        <!-- Display select menu when active -->
-        <select
-          v-if="showSelectMenu"
-          v-model="currentOperator"
-          class="operator-select"
-          @change="updateOperator"
-          @blur="showSelectMenu = false"
-          ref="selectRef"
-          @click.stop
-        >
-          <option :value="JoinOperatorType.AND">AND</option>
-          <option :value="JoinOperatorType.OR">OR</option>
-        </select>
-
-        <!-- Display current operator when not editing -->
-        <div v-else class="edge-label">
-          {{ edgeLabel }}
-        </div>
-      </div>
-    </EdgeLabelRenderer>
-  </BaseEdge>
-</template>
-
 <script setup lang="ts">
-import { computed, ref, onMounted, nextTick, watch } from 'vue';
+import { computed, ref, nextTick, watch } from 'vue';
 import { useVueFlow } from '@vue-flow/core';
 import { BaseEdge, EdgeLabelRenderer, getBezierPath } from '@vue-flow/core';
 import { JoinOperatorType } from '@/types/rule-builder';
@@ -185,6 +138,52 @@ function onEdgeClick(event: MouseEvent) {
   showSelectMenu.value = !showSelectMenu.value;
 }
 </script>
+
+<template>
+  <BaseEdge
+    :id="id"
+    :path="edgePath"
+    :marker-end="markerEnd"
+    class="join-edge"
+    :class="{ selected }"
+    @click="onEdgeClick"
+  >
+    <!-- Edge background to make clicking easier -->
+    <path
+      :d="edgePath"
+      class="edge-interaction-path"
+      @click="onEdgeClick"
+    />
+
+    <!-- Edge label -->
+    <EdgeLabelRenderer>
+      <div
+        class="edge-label-container"
+        :style="labelPositionStyle"
+        @click.stop="showSelectMenu = !showSelectMenu"
+      >
+        <!-- Display select menu when active -->
+        <select
+          v-if="showSelectMenu"
+          v-model="currentOperator"
+          class="operator-select"
+          @change="updateOperator"
+          @blur="showSelectMenu = false"
+          ref="selectRef"
+          @click.stop
+        >
+          <option :value="JoinOperatorType.AND">AND</option>
+          <option :value="JoinOperatorType.OR">OR</option>
+        </select>
+
+        <!-- Display current operator when not editing -->
+        <div v-else class="edge-label">
+          {{ edgeLabel }}
+        </div>
+      </div>
+    </EdgeLabelRenderer>
+  </BaseEdge>
+</template>
 
 <style>
 .join-edge {

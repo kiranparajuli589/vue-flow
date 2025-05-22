@@ -4,7 +4,9 @@ import { VueFlow, useVueFlow } from '@vue-flow/core'
 import DropzoneBackground from './DropzoneBackground.vue'
 import Sidebar from './FlowSidebar.vue'
 import useDragAndDrop from '@/composables/useDragAndDrop'
-
+import ConditionNode from './nodes/ConditionNode.vue'
+import BracketNode from './nodes/BracketNode.vue'
+import JoinEdge from './edges/JoinEdge.vue'
 const { onConnect, addEdges } = useVueFlow()
 
 const { onDragOver, onDrop, onDragLeave, isDragOver } = useDragAndDrop()
@@ -14,19 +16,38 @@ const edges = ref([])
 
 
 onConnect(addEdges)
+
+// const handleConnect = (params) => {
+//   console.log('handleConnect', params)
+//   console.log('edges', edges.value)
+//   addEdges(params)
+// }
+
 </script>
 
 <template>
+  <pre><code>
+    {{ JSON.stringify(edges, null, 2) }}
+  </code></pre>
   <div class="dnd-flow" @drop="onDrop">
     <Sidebar />
 
     <VueFlow
-      :nodes="nodes"
-      :edges="edges"
+      v-model:nodes="nodes"
+      v-model:edges="edges"
       @dragover="onDragOver"
       @dragleave="onDragLeave"
       :edges-updatable="true"
     >
+      <template #node-condition="props">
+        <ConditionNode v-bind="props" />
+      </template>
+      <template #node-bracket="props">
+        <BracketNode v-bind="props" />
+      </template>
+      <template #edge-join="props">
+        <JoinEdge v-bind="props" />
+      </template>
       <DropzoneBackground
         :style="{
           backgroundColor: isDragOver ? '#e7f3ff' : 'transparent',
