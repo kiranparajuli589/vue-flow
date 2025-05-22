@@ -481,7 +481,7 @@ export function useRuleService() {
         lastNodeId = closeBracketId;
         return closeBracketId;
       } else {
-        // Regular condition node
+        // Regular condition node with default values fallback
         const conditionId = generateUniqueId();
         const conditionPosition = positions[conditionId] || { x, y };
 
@@ -490,9 +490,9 @@ export function useRuleService() {
           type: NodeType.CONDITION,
           position: conditionPosition,
           data: {
-            field: condition.field,
-            operator: condition.operator,
-            value: condition.value
+            field: condition.field || FieldType.URI_PATH,
+            operator: condition.operator || OperatorType.EQUALS,
+            value: condition.value || ''
           }
         });
 
@@ -521,7 +521,7 @@ export function useRuleService() {
   }
 
   /**
-   * Creates a default start node
+   * Creates a default start node with proper defaults
    */
   function createDefaultStartNode() {
     addNodes([{

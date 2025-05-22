@@ -68,7 +68,7 @@
           :class="{ 'error': fieldErrors.value }"
         />
         <!-- Dynamic description based on selected field -->
-        <div v-if="fieldDescription" class="field-description">
+        <div v-if="!touched.value && fieldDescription" class="field-description">
           {{ fieldDescription }}
         </div>
         <div v-if="fieldErrors.value" class="field-error">
@@ -145,10 +145,17 @@ const { fields, operators, validateField } = useConditionService();
 
 // Initialize with default values
 const nodeData = reactive({
-  field: '',
-  operator: '',
+  field: FieldType.URI_PATH,
+  operator: OperatorType.EQUALS,
   value: '',
   error: null
+});
+
+// Track touched state for each field
+const touched = reactive({
+  field: false,
+  operator: false,
+  value: false
 });
 
 // Connection status tracking
@@ -165,27 +172,40 @@ watch(() => getEdges.value, (edges) => {
   hasRightConnection.value = edges.some(edge => edge.source === props.id && edge.sourceHandle === 'right');
 }, { deep: true, immediate: true });
 
-// Comprehensive validation
-const validationErrors = computed(() => {
+// Field-specific validation errors (only show if touched)
+const fieldErrors = computed(() => {
+  const errors = {
+    field: '',
+    operator: '',
+    value: ''
+  };
+  
+  // Field validation (show only if touched)
+  if (touched.field && !nodeData.field) {
+    errors.field = 'Field is required';
+  }
+  
+  // Operator validation (show only if touched)
+  if (touched.operator && !nodeData.operator) {
+    errors.operator = 'Operator is required';
+  }
+  
+  // Value validation (show only if touched)
+  if (touched.value) {
+    if (!nodeData.value) {
+      errors.value = 'Value is required';
+    } else if (nodeData.error) {
+      // Add field-specific validation error from validateField
+      errors.value = nodeData.error;
+    }
+  }
+  
+  return errors;
+});
+
+// General validation errors (non-field specific)
+const generalErrors = computed(() => {
   const errors = [];
-  
-  // Required field validations
-  if (!nodeData.field) {
-    errors.push('Field is required');
-  }
-  
-  if (!nodeData.operator) {
-    errors.push('Operator is required');
-  }
-  
-  if (!nodeData.value) {
-    errors.push('Value is required');
-  }
-  
-  // Field-specific validation error
-  if (nodeData.error) {
-    errors.push(nodeData.error);
-  }
   
   // Connection validation - at least one handle must be connected
   const hasAnyConnection = hasTopConnection.value || hasBottomConnection.value || 
@@ -198,30 +218,89 @@ const validationErrors = computed(() => {
   return errors;
 });
 
-// Overall validation status
+// Overall validation status (always check for header status, regardless of touched)
 const isValid = computed(() => {
-  return validationErrors.value.length === 0;
+  // Check all required fields have values
+  const hasAllRequiredFields = nodeData.field && nodeData.operator && nodeData.value;
+  
+  // Check if there's any field-specific validation error (even if not touched)
+  const hasFieldValidationError = nodeData.error;
+  
+  // Check if there are any general errors
+  const hasGeneralErrors = generalErrors.value.length > 0;
+  
+  return hasAllRequiredFields && !hasFieldValidationError && !hasGeneralErrors;
+});
+
+// Dynamic field configurations
+const fieldConfig = computed(() => {
+  const field = fields.value.find(f => f.value === nodeData.field);
+  if (!field) return { placeholder: 'Enter value', description: 'Select a field first' };
+  
+  const config = {
+    placeholder: field.meta?.placeholder || 'Enter value',
+    description: field.meta?.valueDescription || ''
+  };
+  
+  // Enhanced descriptions with examples based on field type
+  switch (nodeData.field) {
+    case 'req.uri.path':
+      config.placeholder = '/api/users';
+      config.description = 'URL path starting with /, e.g., /api/v1/users, /blog/posts';
+      break;
+    case 'req.method':
+      config.placeholder = 'GET';
+      config.description = 'HTTP method like GET, POST, PUT, DELETE';
+      break;
+    case 'req.headers.host':
+      config.placeholder = 'example.com';
+      config.description = 'Domain name, e.g., api.example.com, www.site.org';
+      break;
+    case 'req.headers.UserAgent':
+      config.placeholder = 'Mozilla/5.0';
+      config.description = 'Browser or client identifier, e.g., "Chrome", "mobile"';
+      break;
+    case 'req.geo.country':
+      config.placeholder = 'US';
+      config.description = 'Two-letter country code, e.g., US, GB, CA, DE';
+      break;
+    case 'res.status':
+      config.placeholder = '200';
+      config.description = 'HTTP status code, e.g., 200 (OK), 404 (Not Found), 500 (Error)';
+      break;
+    default:
+      config.description = 'Enter the value to match against';
+  }
+  
+  return config;
 });
 
 // Computed placeholder for field
-const fieldPlaceholder = computed(() => {
-  const field = fields.value.find(f => f.value === nodeData.field);
-  return field?.meta?.placeholder || 'Enter value';
-});
+const fieldPlaceholder = computed(() => fieldConfig.value.placeholder);
+
+// Computed field description
+const fieldDescription = computed(() => fieldConfig.value.description);
 
 // Direct update functions to avoid v-model issues
 function updateField(event) {
+  touched.field = true;
   nodeData.field = event.target.value;
+  // Clear value error when field changes as validation context changes
+  nodeData.error = null;
   handleUpdate();
 }
 
 function updateOperator(event) {
+  touched.operator = true;
   nodeData.operator = event.target.value;
   handleUpdate();
 }
 
 function updateValue(event) {
+  touched.value = true;
   nodeData.value = event.target.value;
+  // Clear error when user starts typing
+  nodeData.error = null;
   handleUpdate();
 }
 
@@ -249,18 +328,27 @@ function handleUpdate() {
 
 // Validate the value and update node
 function validateAndUpdate() {
-  const error = validateField(nodeData.field, nodeData.value);
-  nodeData.error = error || null;
+  touched.value = true;
+  // Only validate if we have a field and value
+  if (nodeData.field && nodeData.value) {
+    const error = validateField(nodeData.field, nodeData.value);
+    nodeData.error = error || null;
+  }
   handleUpdate();
 }
 
 // Initialize component with data if available
 function initializeNodeData() {
   if (props.data) {
-    nodeData.field = props.data.field || '';
-    nodeData.operator = props.data.operator || '';
+    nodeData.field = props.data.field || FieldType.URI_PATH;
+    nodeData.operator = props.data.operator || OperatorType.EQUALS;
     nodeData.value = props.data.value || '';
     nodeData.error = props.data.error || null;
+    
+    // Mark fields as touched if they have values (for loaded rules)
+    if (nodeData.field) touched.field = true;
+    if (nodeData.operator) touched.operator = true;
+    if (nodeData.value) touched.value = true;
   }
   // Mark component as ready to render
   isReady.value = true;

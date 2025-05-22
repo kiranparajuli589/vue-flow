@@ -58,12 +58,12 @@ export function useRuleAutomation() {
     const closeBracketId = generateUniqueId();
 
     // Calculate positioning for multiple conditions
-    const horizontalSpacing = 320;
-    const verticalSpacing = 180;
+    const horizontalSpacing = 450;
+    const verticalSpacing = 250;
     const totalWidth = (conditionCount - 1) * horizontalSpacing;
     const startX = position.x - totalWidth / 2;
     
-    // Create condition nodes
+    // Create condition nodes with default values
     conditionIds.forEach((conditionId, index) => {
       const conditionX = startX + (index * horizontalSpacing);
       const conditionY = position.y + verticalSpacing;
@@ -82,7 +82,7 @@ export function useRuleAutomation() {
 
     // Create closing bracket (centered below)
     const closeBracketX = position.x;
-    const closeBracketY = position.y + (verticalSpacing * 2);
+    const closeBracketY = position.y + (verticalSpacing * 3);
     
     nodes.push({
       id: closeBracketId,
@@ -164,7 +164,7 @@ export function useRuleAutomation() {
     const newNodeId = generateUniqueId();
     const flowPosition = screenToFlowCoordinate(position);
 
-    // Create new condition node
+    // Create new condition node with default values
     addNodes([{
       id: newNodeId,
       type: NodeType.CONDITION,
@@ -230,7 +230,7 @@ export function useRuleAutomation() {
         position: getSmartPosition(position),
         data: { isOpening: true }
       },
-      // First condition (left)
+      // First condition (left) with default values
       {
         id: condition1Id,
         type: NodeType.CONDITION,
@@ -241,7 +241,7 @@ export function useRuleAutomation() {
           value: ''
         }
       },
-      // Second condition (right)
+      // Second condition (right) with default values
       {
         id: condition2Id,
         type: NodeType.CONDITION,

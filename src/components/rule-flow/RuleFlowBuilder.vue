@@ -59,9 +59,6 @@ onConnect((params) => {
   addEdges([edge])
 })
 
-// Handle node drag stop for auto-completion (remove this since we're using drop handler now)
-// onNodeDragStop is no longer needed for auto-completion
-
 // Track selected nodes through node changes
 onNodesChange((changes) => {
   const currentNodes = nodes.value
@@ -135,7 +132,7 @@ function handleKeyDown(event: KeyboardEvent) {
   }
 }
 
-// Individual node creation functions
+// Individual node creation functions with default values
 function addConditionNode(position: { x: number; y: number }) {
   const nodeId = `condition_${Date.now()}`
   const flowPosition = screenToFlowCoordinate(position)
@@ -145,8 +142,8 @@ function addConditionNode(position: { x: number; y: number }) {
     type: NodeType.CONDITION,
     position: getSmartPosition(flowPosition),
     data: {
-      field: 'req.uri.path',
-      operator: '==',
+      field: FieldType.URI_PATH,
+      operator: OperatorType.EQUALS,
       value: ''
     }
   }])
