@@ -10,6 +10,8 @@ const { onConnect, addEdges } = useVueFlow()
 const { onDragOver, onDrop, onDragLeave, isDragOver } = useDragAndDrop()
 
 const nodes = ref([])
+const edges = ref([])
+
 
 onConnect(addEdges)
 </script>
@@ -18,7 +20,13 @@ onConnect(addEdges)
   <div class="dnd-flow" @drop="onDrop">
     <Sidebar />
 
-    <VueFlow :nodes="nodes" @dragover="onDragOver" @dragleave="onDragLeave">
+    <VueFlow
+      :nodes="nodes"
+      :edges="edges"
+      @dragover="onDragOver"
+      @dragleave="onDragLeave"
+      :edges-updatable="true"
+    >
       <DropzoneBackground
         :style="{
           backgroundColor: isDragOver ? '#e7f3ff' : 'transparent',

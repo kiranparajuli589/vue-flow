@@ -81,6 +81,8 @@ export default function useDragAndDrop() {
       data: { label: nodeId },
     }
 
+    console.log('newNode', newNode)
+
     const { off } = onNodesInitialized(() => {
       updateNode(nodeId, (node) => ({
         position: { x: node.position.x - node.dimensions.width / 2, y: node.position.y - node.dimensions.height / 2 },
