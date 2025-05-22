@@ -27,9 +27,6 @@ onConnect((params) => {
 </script>
 
 <template>
-  <pre><code>
-    {{ JSON.stringify(edges, null, 2) }}
-  </code></pre>
   <div class="dnd-flow" @drop="onDrop">
     <Sidebar />
 

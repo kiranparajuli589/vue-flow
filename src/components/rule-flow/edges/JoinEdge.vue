@@ -93,7 +93,9 @@ const labelY = computed(() => edgePathData.value[2]);
 // Label position style
 const labelPositionStyle = computed(() => {
   return {
+    position: 'absolute',
     transform: `translate(-50%, -50%) translate(${labelX.value}px, ${labelY.value}px)`,
+    pointerEvents: 'all',
   };
 });
 
@@ -102,19 +104,21 @@ const edgeLabel = computed(() => {
   return currentOperator.value === JoinOperatorType.AND ? 'AND' : 'OR';
 });
 
-// Watch for data changes
+// Watch for data changes from props
 watch(() => props.data, (newData) => {
-  if (newData && newData.operator) {
+  if (newData?.operator) {
     currentOperator.value = newData.operator;
   }
-}, { deep: true });
+}, { deep: true, immediate: true });
 
 // Update operator when select changes
 function updateOperator() {
+  // Update the edge with new operator
   updateEdge(props.id, {
     data: { operator: currentOperator.value },
     label: currentOperator.value,
   });
+  
   showSelectMenu.value = false;
 }
 
@@ -129,38 +133,51 @@ watch(showSelectMenu, (show) => {
   }
 });
 
-// Handle edge click
-function onEdgeClick(event: MouseEvent) {
+// Handle label click
+function onLabelClick(event: MouseEvent) {
   event.stopPropagation();
   event.preventDefault();
-
-  // Toggle select menu
   showSelectMenu.value = !showSelectMenu.value;
+}
+
+// Handle select blur
+function onSelectBlur() {
+  showSelectMenu.value = false;
+}
+
+// Handle edge path click - allow normal selection, but not operator switching
+function onEdgeClick(event: MouseEvent) {
+  // Don't prevent default behavior - let Vue Flow handle selection
+  // Only prevent if we want to show the operator menu
+  // For now, let's only allow operator switching via label click
 }
 </script>
 
 <template>
-  <BaseEdge
-    :id="id"
-    :path="edgePath"
-    :marker-end="markerEnd"
-    class="join-edge"
-    :class="{ selected }"
-    @click="onEdgeClick"
-  >
-    <!-- Edge background to make clicking easier -->
+  <g>
+    <!-- Main edge path -->
+    <BaseEdge
+      :id="id"
+      :path="edgePath"
+      :marker-end="markerEnd"
+      :style="style"
+      class="join-edge"
+      :class="{ selected }"
+    />
+
+    <!-- Invisible wider path for easier clicking -->
     <path
       :d="edgePath"
       class="edge-interaction-path"
       @click="onEdgeClick"
     />
 
-    <!-- Edge label -->
+    <!-- Edge label using EdgeLabelRenderer -->
     <EdgeLabelRenderer>
       <div
-        class="edge-label-container"
         :style="labelPositionStyle"
-        @click.stop="showSelectMenu = !showSelectMenu"
+        class="edge-label-container"
+        @click="onLabelClick"
       >
         <!-- Display select menu when active -->
         <select
@@ -168,7 +185,7 @@ function onEdgeClick(event: MouseEvent) {
           v-model="currentOperator"
           class="operator-select"
           @change="updateOperator"
-          @blur="showSelectMenu = false"
+          @blur="onSelectBlur"
           ref="selectRef"
           @click.stop
         >
@@ -182,10 +199,10 @@ function onEdgeClick(event: MouseEvent) {
         </div>
       </div>
     </EdgeLabelRenderer>
-  </BaseEdge>
+  </g>
 </template>
 
-<style>
+<style scoped>
 .join-edge {
   stroke: #4299e1;
   stroke-width: 2;
@@ -200,36 +217,38 @@ function onEdgeClick(event: MouseEvent) {
 /* Wider invisible path for easier interaction */
 .edge-interaction-path {
   stroke: transparent;
-  stroke-width: 15;
+  stroke-width: 20;
   cursor: pointer;
-  pointer-events: all;
   fill: none;
 }
 
 .edge-label-container {
+  position: absolute;
   pointer-events: all;
   cursor: pointer;
-  position: absolute;
   font-size: 12px;
   background-color: #f0f9ff;
-  padding: 2px 5px;
+  padding: 4px 8px;
   border-radius: 4px;
   border: 1px solid #bee3f8;
   white-space: nowrap;
   z-index: 1000;
   transition: all 0.2s ease;
   user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .edge-label-container:hover {
   background-color: #ebf8ff;
   transform: scale(1.05);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
 .edge-label {
   font-weight: 600;
   color: #4299e1;
+  font-size: 11px;
+  line-height: 1;
 }
 
 /* Operator select style */
@@ -237,13 +256,13 @@ function onEdgeClick(event: MouseEvent) {
   background-color: white;
   border: 1px solid #4299e1;
   border-radius: 4px;
-  padding: 2px 4px;
-  font-size: 12px;
+  padding: 2px 6px;
+  font-size: 11px;
   color: #4299e1;
   font-weight: 600;
   cursor: pointer;
   outline: none;
-  min-width: 70px;
+  min-width: 60px;
 }
 
 .operator-select:focus {

@@ -1,9 +1,10 @@
 import { markRaw } from 'vue';
 import JoinEdge from './JoinEdge.vue';
+import { EdgeType } from '@/types/rule-builder';
 
 // Define edge registration map
 const edgeTypes = {
-  'default': markRaw(JoinEdge)
+  [EdgeType.JOIN]: markRaw(JoinEdge)
 };
 
 export default edgeTypes;
