@@ -5,7 +5,7 @@
     :class="{ 'opening': isOpening, 'closing': !isOpening, 'error': !isPaired }"
   >
     <div class="node-header">
-      <span class="node-title">Bracket</span>
+      <span class="node-title">{{ isOpening ? 'Opening Bracket' : 'Closing Bracket' }}</span>
       <button @click="onRemove" class="remove-btn">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -21,43 +21,64 @@
       </select>
     </div>
 
-    <!-- Use the correct handle syntax for brackets -->
-    <div v-if="!isOpening" class="vue-flow__handle vue-flow__handle-top" data-type="target" data-handle-id="target"></div>
-    <div v-if="isOpening" class="vue-flow__handle vue-flow__handle-bottom" data-type="source" data-handle-id="source"></div>
+    <!-- Vue Flow native handles -->
+    <Handle
+      v-if="!isOpening"
+      type="target"
+      :position="Position.Top"
+      :isConnectable="isConnectable"
+      class="vf-handle target-handle"
+    />
+    <Handle
+      v-if="isOpening"
+      type="source"
+      :position="Position.Bottom"
+      :isConnectable="isConnectable"
+      class="vf-handle source-handle"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useVueFlow } from '@vue-flow/core';
-import { BracketData } from '@/types/rule-builder';
+import { useVueFlow, Position, Handle } from '@vue-flow/core';
+import { BracketData, NodeType } from '@/types/rule-builder';
 
 const props = defineProps<{
   id: string;
   data: BracketData;
   selected: boolean;
+  type?: string;
+  isConnectable?: boolean;
 }>();
 
 const emit = defineEmits(['nodeUpdate', 'nodeRemove']);
 const { updateNode, getNodes } = useVueFlow();
 
-const localIsOpening = ref<boolean>(props.data.isOpening);
+// Local state
+const localIsOpening = ref<boolean>(
+  props.type === NodeType.BRACKET_OPEN ||
+  (props.data && props.data.isOpening !== undefined ? props.data.isOpening : true)
+);
 
+const isConnectable = computed(() => props.isConnectable !== false);
+
+// Computed properties
 const isOpening = computed(() => localIsOpening.value);
 
 const isPaired = computed(() => {
   const nodes = getNodes.value;
   const bracketNodes = nodes.filter(node =>
-    node.type === 'bracketOpen' || node.type === 'bracketClose'
+    node.type === NodeType.BRACKET_OPEN || node.type === NodeType.BRACKET_CLOSE
   );
 
   // Count opening and closing brackets
   const openingCount = bracketNodes.filter(node =>
-    node.type === 'bracketOpen' || (node.type === 'bracket' && node.data.isOpening)
+    node.type === NodeType.BRACKET_OPEN || (node.type === 'bracket' && node.data.isOpening)
   ).length;
 
   const closingCount = bracketNodes.filter(node =>
-    node.type === 'bracketClose' || (node.type === 'bracket' && !node.data.isOpening)
+    node.type === NodeType.BRACKET_CLOSE || (node.type === 'bracket' && !node.data.isOpening)
   ).length;
 
   return openingCount === closingCount;
@@ -69,9 +90,11 @@ function handleUpdateNode() {
     pairedNodeId: props.data.pairedNodeId
   };
 
-  // Correct updateNode usage
+  // Update node type based on bracket type
+  const nodeType = localIsOpening.value ? NodeType.BRACKET_OPEN : NodeType.BRACKET_CLOSE;
+
   updateNode(props.id, {
-    type: localIsOpening.value ? 'bracketOpen' : 'bracketClose',
+    type: nodeType,
     data: updatedData
   });
 
@@ -92,17 +115,34 @@ function onRemove() {
 
 // Initialize and keep in sync with props
 onMounted(() => {
-  localIsOpening.value = props.data.isOpening;
+  // Set initial opening state based on props
+  if (props.type === NodeType.BRACKET_OPEN) {
+    localIsOpening.value = true;
+  } else if (props.type === NodeType.BRACKET_CLOSE) {
+    localIsOpening.value = false;
+  } else if (props.data) {
+    localIsOpening.value = props.data.isOpening;
+  }
 });
 
 watch(() => props.data, (newData) => {
-  localIsOpening.value = newData.isOpening;
+  if (newData) {
+    localIsOpening.value = newData.isOpening;
+  }
 }, { deep: true });
+
+watch(() => props.type, (newType) => {
+  if (newType === NodeType.BRACKET_OPEN) {
+    localIsOpening.value = true;
+  } else if (newType === NodeType.BRACKET_CLOSE) {
+    localIsOpening.value = false;
+  }
+});
 </script>
 
 <style scoped>
 .bracket-node {
-  background-color: #faf5ff;
+  background-color: white;
   border: 1px solid #d6bcfa;
   border-radius: 8px;
   width: 150px;
@@ -113,10 +153,12 @@ watch(() => props.data, (newData) => {
 
 .bracket-node.opening {
   border-left-width: 4px;
+  border-left-color: #805ad5;
 }
 
 .bracket-node.closing {
   border-right-width: 4px;
+  border-right-color: #805ad5;
 }
 
 .bracket-node.error {
@@ -147,9 +189,10 @@ watch(() => props.data, (newData) => {
 }
 
 .bracket-symbol {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: bold;
   color: #805ad5;
+  line-height: 1;
 }
 
 .bracket-type {
@@ -174,18 +217,27 @@ watch(() => props.data, (newData) => {
   color: #f56565;
 }
 
-/* Vue Flow handle styles */
-.vue-flow__handle-top {
-  top: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  position: absolute;
+/* Enhanced handle styles */
+.vf-handle {
+  width: 16px !important;
+  height: 16px !important;
+  background-color: #805ad5 !important;
+  border: 2px solid white !important;
+  border-radius: 50% !important;
+  transition: all 0.2s ease;
+  cursor: crosshair !important;
 }
 
-.vue-flow__handle-bottom {
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  position: absolute;
+.vf-handle:hover {
+  transform: scale(1.2);
+  background-color: #6b46c1 !important;
+}
+
+.target-handle {
+  top: -8px;
+}
+
+.source-handle {
+  bottom: -8px;
 }
 </style>

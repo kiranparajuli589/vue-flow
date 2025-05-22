@@ -1,4 +1,3 @@
-<!-- src/components/RuleBuilder.vue -->
 <template>
   <div class="rule-builder">
     <div class="rule-builder-header">
@@ -21,7 +20,7 @@
         <p>Define the conditions that will match this rule</p>
 
         <rule-flow-builder
-          v-model:rule="createPattern"
+          v-model="createPattern"
           :initial-rule="initialRule"
           @validate="flowValid = $event"
         />
@@ -89,7 +88,7 @@ const emit = defineEmits(['submit', 'cancel']);
 // State
 const ruleName = ref('');
 const nameError = ref('');
-const createPattern = ref({ conditions: [] });
+const createPattern = ref({ create_pattern: { conditions: [] }});
 const replacePattern = ref({});
 const replacePatternType = ref('standard');
 const flowValid = ref(false);
@@ -106,6 +105,15 @@ const replacePatternComponent = computed(() => {
 
 const isValid = computed(() => {
   return !!ruleName.value && !nameError.value && flowValid.value && replacePatternValid.value;
+});
+
+const initialRule = computed(() => {
+  if (!props.initialRule) return null;
+
+  // Extract create pattern directly to avoid prop mismatch warnings
+  return {
+    create_pattern: props.initialRule.create_pattern
+  };
 });
 
 // Methods
@@ -162,7 +170,7 @@ function resetForm() {
     } else {
       // Clear form if creating new
       ruleName.value = '';
-      createPattern.value = { conditions: [] };
+      createPattern.value = { create_pattern: { conditions: [] }};
       replacePattern.value = {};
       replacePatternType.value = 'standard';
     }

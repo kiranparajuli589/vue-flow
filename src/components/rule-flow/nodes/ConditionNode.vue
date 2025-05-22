@@ -1,9 +1,6 @@
 <!-- src/components/rule-flow/nodes/ConditionNode.vue -->
 <template>
-  <div
-    class="condition-node"
-    :class="{ 'error': hasError }"
-  >
+  <div v-if="isReady" class="condition-node" :class="{ 'error': !!nodeData.error }">
     <div class="node-header">
       <span class="node-title">Condition</span>
       <button @click="onRemove" class="remove-btn">
@@ -16,7 +13,7 @@
     <div class="node-content">
       <div class="form-group">
         <label>Field</label>
-        <select v-model="localData.field" @change="handleUpdate">
+        <select :value="nodeData.field" @change="updateField($event)" class="form-select">
           <option v-for="field in fields" :key="field.value" :value="field.value">
             {{ field.label }}
           </option>
@@ -25,7 +22,7 @@
 
       <div class="form-group">
         <label>Operator</label>
-        <select v-model="localData.operator" @change="handleUpdate">
+        <select :value="nodeData.operator" @change="updateOperator($event)" class="form-select">
           <option v-for="op in operators" :key="op.value" :value="op.value">
             {{ op.label }}
           </option>
@@ -35,90 +32,109 @@
       <div class="form-group">
         <label>Value</label>
         <input
-          v-model="localData.value"
-          @input="handleUpdate"
+          :value="nodeData.value"
+          @input="updateValue($event)"
           @blur="validateAndUpdate"
-          :placeholder="getFieldMeta.placeholder || 'Enter value'"
+          :placeholder="fieldPlaceholder"
+          class="form-input"
         />
-        <div v-if="localData.error" class="error-text">
-          {{ localData.error }}
+        <div v-if="nodeData.error" class="error-text">
+          {{ nodeData.error }}
         </div>
       </div>
     </div>
 
-    <!-- Use the correct handle syntax as demonstrated in the Vue Flow example -->
-    <div class="vue-flow__handle vue-flow__handle-top" data-type="target" data-handle-id="target"></div>
-    <div class="vue-flow__handle vue-flow__handle-bottom" data-type="source" data-handle-id="source"></div>
+    <!-- Vue Flow native handles -->
+    <Handle
+      type="target"
+      :position="Position.Top"
+      :isConnectable="true"
+      class="vf-handle target-handle"
+    />
+    <Handle
+      type="source"
+      :position="Position.Bottom"
+      :isConnectable="true"
+      class="vf-handle source-handle"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
-import { useVueFlow } from '@vue-flow/core';
-import { ConditionData, FieldType, OperatorType, NodeType } from '@/types/rule-builder';
+import { ref, reactive, computed, onMounted } from 'vue';
+import { useVueFlow, Position, Handle } from '@vue-flow/core';
+import { FieldType, OperatorType } from '@/types/rule-builder';
 import { useConditionService } from '@/composables/useConditionService';
 
-const props = defineProps<{
-  id: string;
-  data: ConditionData;
-  selected: boolean;
-}>();
+// Flag to prevent rendering until ready
+const isReady = ref(false);
+
+const props = defineProps({
+  id: { type: String, required: true },
+  data: { type: Object, default: () => null },
+  selected: { type: Boolean, default: false }
+});
 
 const emit = defineEmits(['nodeUpdate', 'nodeRemove']);
 const { updateNode } = useVueFlow();
 const { fields, operators, validateField } = useConditionService();
 
-const localData = ref<ConditionData>({
-  field: props.data.field || FieldType.URI_PATH,
-  operator: props.data.operator || OperatorType.EQUALS,
-  value: props.data.value || '',
-  error: props.data.error
+// Initialize with default values
+const nodeData = reactive({
+  field: FieldType.URI_PATH,
+  operator: OperatorType.EQUALS,
+  value: '',
+  error: null
 });
 
-const getFieldMeta = computed(() => {
-  const field = fields.value.find(f => f.value === localData.value.field);
-  return field?.meta || {};
+// Computed placeholder for field
+const fieldPlaceholder = computed(() => {
+  const field = fields.value.find(f => f.value === nodeData.field);
+  return field?.meta?.placeholder || 'Enter value';
 });
 
-const hasError = computed(() => {
-  return !!localData.value.error;
-});
+// Direct update functions to avoid v-model issues
+function updateField(event) {
+  nodeData.field = event.target.value;
+  handleUpdate();
+}
 
-const isStartNode = computed(() => {
-  const { getNodes, getEdges } = useVueFlow();
-  const nodes = getNodes.value;
-  const edges = getEdges.value;
+function updateOperator(event) {
+  nodeData.operator = event.target.value;
+  handleUpdate();
+}
 
-  // If this is the only node or it doesn't have any incoming edges, it's the start node
-  return nodes.length === 1 || !edges.some(edge => edge.target === props.id);
-});
+function updateValue(event) {
+  nodeData.value = event.target.value;
+  handleUpdate();
+}
 
 // Update node data without validation
 function handleUpdate() {
-  // Correct updateNode usage
   updateNode(props.id, {
-    data: { ...localData.value }
+    data: {
+      field: nodeData.field,
+      operator: nodeData.operator,
+      value: nodeData.value,
+      error: nodeData.error
+    }
   });
 
   emit('nodeUpdate', {
     id: props.id,
-    data: { ...localData.value }
+    data: {
+      field: nodeData.field,
+      operator: nodeData.operator,
+      value: nodeData.value,
+      error: nodeData.error
+    }
   });
 }
 
 // Validate the value and update node
 function validateAndUpdate() {
-  const error = validateField(localData.value.field, localData.value.value);
-
-  // Update local error state
-  localData.value.error = error;
-
-  // Correct updateNode usage
-  updateNode(props.id, {
-    data: { ...localData.value }
-  });
-
-  // Emit the update event
+  const error = validateField(nodeData.field, nodeData.value);
+  nodeData.error = error || null;
   handleUpdate();
 }
 
@@ -126,14 +142,23 @@ function onRemove() {
   emit('nodeRemove', props.id);
 }
 
-// Initialize and keep in sync with props
-onMounted(() => {
-  localData.value = { ...props.data };
-});
+// Initialize component with data if available
+function initializeNodeData() {
+  if (props.data) {
+    nodeData.field = props.data.field || FieldType.URI_PATH;
+    nodeData.operator = props.data.operator || OperatorType.EQUALS;
+    nodeData.value = props.data.value || '';
+    nodeData.error = props.data.error || null;
+  }
+  // Mark component as ready to render
+  isReady.value = true;
+}
 
-watch(() => props.data, (newData) => {
-  localData.value = { ...newData };
-}, { deep: true });
+// Initialize when mounted
+onMounted(() => {
+  // Initialize from props data
+  initializeNodeData();
+});
 </script>
 
 <style scoped>
@@ -196,11 +221,12 @@ watch(() => props.data, (newData) => {
   font-weight: 500;
 }
 
-.form-group select, .form-group input {
+.form-select, .form-input {
   padding: 8px;
   border: 1px solid #e2e8f0;
   border-radius: 4px;
   font-size: 14px;
+  background-color: white;
 }
 
 .error-text {
@@ -209,18 +235,27 @@ watch(() => props.data, (newData) => {
   margin-top: 4px;
 }
 
-/* Vue Flow handle styles - consistent with other nodes */
-.vue-flow__handle-top {
-  top: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  position: absolute;
+/* Enhanced handle styles */
+.vf-handle {
+  width: 16px !important;
+  height: 16px !important;
+  background-color: #4299e1 !important;
+  border: 2px solid white !important;
+  border-radius: 50% !important;
+  transition: all 0.2s ease;
+  cursor: crosshair !important;
 }
 
-.vue-flow__handle-bottom {
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  position: absolute;
+.vf-handle:hover {
+  transform: scale(1.2);
+  background-color: #2b6cb0 !important;
+}
+
+.target-handle {
+  top: -8px;
+}
+
+.source-handle {
+  bottom: -8px;
 }
 </style>

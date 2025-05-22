@@ -1,4 +1,4 @@
-<!-- src/components/rule-flow/RulePreview.vue -->
+<!-- src/components/rule-flow/RulePreview.vue (Updated for Edge Joins) -->
 <template>
   <div class="rule-preview">
     <div v-if="isValid" class="preview-valid">
@@ -28,212 +28,189 @@
 import { computed } from 'vue';
 import { useVueFlow } from '@vue-flow/core';
 import { NodeType, JoinOperatorType } from '@/types/rule-builder';
+import { useRuleService } from '@/composables/useRuleService';
 
-const props = defineProps<{
+// Props
+defineProps<{
   elements: any[];
 }>();
 
+// Get Vue Flow utilities
 const { getNodes, getEdges } = useVueFlow();
 
-const isValid = computed(() => {
-  // Check if we have at least one condition
-  const conditionNodes = getNodes.value.filter(node => node.type === NodeType.CONDITION);
-  if (conditionNodes.length === 0) {
-    return false;
-  }
+// Get rule service for validation
+const { validateFlow } = useRuleService();
 
-  // Check if any condition has validation errors
-  const hasConditionErrors = conditionNodes.some(node => !!node.data.error);
-  if (hasConditionErrors) {
-    return false;
-  }
+// Determine if rule is valid
+const isValid = computed(() => validateFlow.value.valid);
 
-  // Check bracket pairing
-  const openBrackets = getNodes.value.filter(node => node.type === NodeType.BRACKET_OPEN).length;
-  const closeBrackets = getNodes.value.filter(node => node.type === NodeType.BRACKET_CLOSE).length;
-  if (openBrackets !== closeBrackets) {
-    return false;
-  }
+// Get validation message
+const validationMessage = computed(() => validateFlow.value.message);
 
-  // Check connection validity
-  const edges = getEdges.value;
-  const nodes = getNodes.value;
-
-  // Make sure all nodes (except possibly the last one) have outgoing connections
-  const nodesWithoutOutgoing = nodes.filter(node =>
-    !edges.some(edge => edge.source === node.id)
-  );
-
-  if (nodesWithoutOutgoing.length > 1) {
-    return false;
-  }
-
-  // Make sure joins have both incoming and outgoing connections
-  const joinNodes = nodes.filter(node => node.type === NodeType.JOIN);
-  const invalidJoins = joinNodes.filter(node => {
-    const incoming = edges.filter(edge => edge.target === node.id).length;
-    const outgoing = edges.filter(edge => edge.source === node.id).length;
-    return incoming === 0 || outgoing === 0;
-  });
-
-  if (invalidJoins.length > 0) {
-    return false;
-  }
-
-  return true;
-});
-
-const validationMessage = computed(() => {
-  // Return appropriate validation message based on what's wrong
-  const conditionNodes = getNodes.value.filter(node => node.type === NodeType.CONDITION);
-
-  if (conditionNodes.length === 0) {
-    return 'At least one condition is required.';
-  }
-
-  const errorCondition = conditionNodes.find(node => !!node.data.error);
-  if (errorCondition) {
-    return `Condition has error: ${errorCondition.data.error}`;
-  }
-
-  const openBrackets = getNodes.value.filter(node => node.type === NodeType.BRACKET_OPEN).length;
-  const closeBrackets = getNodes.value.filter(node => node.type === NodeType.BRACKET_CLOSE).length;
-  if (openBrackets !== closeBrackets) {
-    return 'Unbalanced brackets. Each opening bracket must have a matching closing bracket.';
-  }
-
-  const joinNodes = getNodes.value.filter(node => node.type === NodeType.JOIN);
-  const invalidJoins = joinNodes.filter(node => {
-    const incoming = getEdges.value.filter(edge => edge.target === node.id).length;
-    const outgoing = getEdges.value.filter(edge => edge.source === node.id).length;
-    return incoming === 0 || outgoing === 0;
-  });
-
-  if (invalidJoins.length > 0) {
-    return 'Join operators must connect two nodes.';
-  }
-
-  return 'Invalid rule structure.';
-});
-
+// Generate readable rule text
 const readableRule = computed(() => {
   if (!isValid.value) return '';
 
-  // Generate a human-readable representation of the rule
-  const rule = buildRuleStructure();
-  if (!rule.create_pattern || !rule.create_pattern.conditions) {
-    return '';
-  }
-
-  return formatReadableRule(rule.create_pattern.conditions);
+  // Generate a human-readable representation based on the current nodes and edges
+  return formatReadableRule();
 });
 
+// Generate Lua expression
 const luaExpression = computed(() => {
   if (!isValid.value) return '';
 
   // Generate a Lua expression from the rule
-  const rule = buildRuleStructure();
-  if (!rule.create_pattern || !rule.create_pattern.conditions) {
-    return '';
-  }
-
-  return formatLuaExpression(rule.create_pattern.conditions);
+  return formatLuaExpression();
 });
 
-// Build a rule structure from the flow
-function buildRuleStructure() {
+// Find all root nodes (nodes with no incoming edges)
+function findRootNodes() {
   const nodes = getNodes.value;
   const edges = getEdges.value;
 
-  // Find the starting node (node with no incoming edges)
-  let startNodeId = nodes.find(node =>
+  return nodes.filter(node =>
     !edges.some(edge => edge.target === node.id)
-  )?.id;
-
-  // If no clear start node, just pick the first one
-  if (!startNodeId && nodes.length > 0) {
-    startNodeId = nodes[0].id;
-  }
-
-  // Build the rule structure by traversing the flow
-  const conditions = buildConditionsArray(startNodeId);
-
-  return {
-    create_pattern: {
-      conditions
-    }
-  };
-}
-
-// This function is similar to the one in the main component
-function buildConditionsArray(nodeId: string, visitedNodes = new Set()) {
-  // ... (Same implementation as in RuleFlowBuilder.vue)
-  // This code duplicates the `buildConditionsArray` function from RuleFlowBuilder
-  // You can extract this to a shared utility if needed
+  );
 }
 
 // Format human-readable rule text
-function formatReadableRule(conditions: any[], depth = 0) {
-  if (!conditions || conditions.length === 0) return '';
-
+function formatReadableRule() {
+  const rootNodes = findRootNodes();
   let result = '';
-  const indent = '  '.repeat(depth);
 
-  for (let i = 0; i < conditions.length; i++) {
-    const condition = conditions[i];
-
-    if (condition.isGroup) {
-      result += `${indent}( \n`;
-      result += formatReadableRule(condition.conditions, depth + 1);
-      result += `${indent}) `;
-    } else {
-      // Format condition
-      result += `${indent}${condition.field} ${formatOperator(condition.operator)} "${condition.value}" `;
-    }
-
-    // Add join operator if not the last condition
-    if (i < conditions.length - 1) {
-      result += `${condition.joinOperator || '&&'} \n`;
-    }
+  for (const rootNode of rootNodes) {
+    result += formatNodePath(rootNode.id);
   }
 
-  return result;
+  return result || 'No valid rule constructed yet.';
 }
 
 // Format Lua expression
-function formatLuaExpression(conditions: any[]) {
-  if (!conditions || conditions.length === 0) return '';
-
+function formatLuaExpression() {
+  const rootNodes = findRootNodes();
   let result = '';
 
-  for (let i = 0; i < conditions.length; i++) {
-    const condition = conditions[i];
+  for (const rootNode of rootNodes) {
+    result += formatNodePathAsLua(rootNode.id);
+  }
 
-    if (condition.isGroup) {
-      result += '(';
-      result += formatLuaExpression(condition.conditions);
-      result += ')';
-    } else {
-      if (condition.operator === 'starts_with') {
-        result += `string.sub(${condition.field}, 1, ${condition.value.length}) == "${condition.value}"`;
-      } else if (condition.operator === 'ends_with') {
-        result += `string.sub(${condition.field}, -${condition.value.length}) == "${condition.value}"`;
-      } else if (condition.operator === '~~') {
-        result += `string.find(${condition.field}, "${condition.value}") ~= nil`;
+  return result || '-- No valid rule constructed yet';
+}
+
+// Recursively follow node path to format readable rule
+function formatNodePath(nodeId: string, depth = 0, visited = new Set<string>()) {
+  if (visited.has(nodeId)) return '';
+  visited.add(nodeId);
+
+  const node = getNodes.value.find(n => n.id === nodeId);
+  if (!node) return '';
+
+  const indent = '  '.repeat(depth);
+  let result = '';
+
+  // Format based on node type
+  if (node.type === NodeType.CONDITION) {
+    result += `${indent}${node.data.field} ${formatOperator(node.data.operator)} "${node.data.value}"`;
+  } else if (node.type === NodeType.BRACKET_OPEN) {
+    result += `${indent}(`;
+  } else if (node.type === NodeType.BRACKET_CLOSE) {
+    result += `${indent})`;
+  }
+
+  // Find outgoing edges
+  const outEdges = getEdges.value.filter(edge => edge.source === nodeId);
+
+  if (outEdges.length > 0) {
+    const nextNodeId = outEdges[0].target;
+    const joinOperator = outEdges[0].data?.operator || JoinOperatorType.AND;
+
+    // Add join operator if going to another node
+    const nextNode = getNodes.value.find(n => n.id === nextNodeId);
+
+    if (nextNode) {
+      // Special case for brackets - don't add operators between opening and closing brackets
+      if (
+        (node.type === NodeType.BRACKET_OPEN && nextNode.type === NodeType.BRACKET_CLOSE) ||
+        (node.type === NodeType.BRACKET_CLOSE && nextNode.type === NodeType.BRACKET_OPEN)
+      ) {
+        result += "\n" + formatNodePath(nextNodeId, depth, visited);
+      } else if (node.type === NodeType.BRACKET_OPEN) {
+        // After an opening bracket, increase indent but don't add operator
+        result += "\n" + formatNodePath(nextNodeId, depth + 1, visited);
+      } else if (nextNode.type === NodeType.BRACKET_CLOSE) {
+        // Before a closing bracket, just add the bracket on a new line
+        result += "\n" + formatNodePath(nextNodeId, depth - 1, visited);
       } else {
-        result += `${condition.field} ${condition.operator} "${condition.value}"`;
+        // Normal case - add operator and continue
+        result += ` ${joinOperator}\n` + formatNodePath(nextNodeId, depth, visited);
       }
-    }
-
-    // Add join operator if not the last condition
-    if (i < conditions.length - 1) {
-      result += ` ${condition.joinOperator || '&&'} `;
     }
   }
 
   return result;
 }
 
+// Recursively follow node path to format Lua expression
+function formatNodePathAsLua(nodeId: string, visited = new Set<string>()) {
+  if (visited.has(nodeId)) return '';
+  visited.add(nodeId);
+
+  const node = getNodes.value.find(n => n.id === nodeId);
+  if (!node) return '';
+
+  let result = '';
+
+  // Format based on node type
+  if (node.type === NodeType.CONDITION) {
+    if (node.data.operator === 'starts_with') {
+      result += `string.sub(${node.data.field}, 1, ${node.data.value.length}) == "${node.data.value}"`;
+    } else if (node.data.operator === 'ends_with') {
+      result += `string.sub(${node.data.field}, -${node.data.value.length}) == "${node.data.value}"`;
+    } else if (node.data.operator === '~~') {
+      result += `string.find(${node.data.field}, "${node.data.value}") ~= nil`;
+    } else {
+      result += `${node.data.field} ${node.data.operator} "${node.data.value}"`;
+    }
+  } else if (node.type === NodeType.BRACKET_OPEN) {
+    result += '(';
+  } else if (node.type === NodeType.BRACKET_CLOSE) {
+    result += ')';
+  }
+
+  // Find outgoing edges
+  const outEdges = getEdges.value.filter(edge => edge.source === nodeId);
+
+  if (outEdges.length > 0) {
+    const nextNodeId = outEdges[0].target;
+    const joinOperator = outEdges[0].data?.operator || JoinOperatorType.AND;
+
+    // Add join operator if going to another node
+    const nextNode = getNodes.value.find(n => n.id === nextNodeId);
+
+    if (nextNode) {
+      // Special case for brackets - don't add operators between opening and contents or closing brackets
+      if (
+        (node.type === NodeType.BRACKET_OPEN && nextNode.type === NodeType.BRACKET_CLOSE) ||
+        (node.type === NodeType.BRACKET_CLOSE && nextNode.type === NodeType.BRACKET_OPEN)
+      ) {
+        result += formatNodePathAsLua(nextNodeId, visited);
+      } else if (node.type === NodeType.BRACKET_OPEN) {
+        // After an opening bracket, don't add operator
+        result += formatNodePathAsLua(nextNodeId, visited);
+      } else if (nextNode.type === NodeType.BRACKET_CLOSE) {
+        // Before a closing bracket, don't add operator
+        result += formatNodePathAsLua(nextNodeId, visited);
+      } else {
+        // Normal case - add operator and continue
+        result += ` ${joinOperator} ` + formatNodePathAsLua(nextNodeId, visited);
+      }
+    }
+  }
+
+  return result;
+}
+
+// Helper function to format operator for display
 function formatOperator(operator: string) {
   switch (operator) {
     case '~~': return 'contains';
