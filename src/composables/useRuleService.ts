@@ -1,4 +1,3 @@
-// src/composables/useRuleService.ts
 import { ref, computed } from 'vue';
 import { type Edge, useVueFlow } from '@vue-flow/core'
 import { NodeType, FieldType, OperatorType, JoinOperatorType, EdgeType } from '@/types/rule-builder';
@@ -28,22 +27,22 @@ export function useRuleService() {
     }
 
     // BRACKET-SPECIFIC RULES (highest priority)
-    
+
     // Rule 1: → Opening Bracket (incoming) = JOIN edge
     if (targetNode.type === NodeType.BRACKET_OPEN) {
       return EdgeType.JOIN;
     }
-    
+
     // Rule 2: Opening Bracket → (outgoing) = SIMPLE edge
     if (sourceNode.type === NodeType.BRACKET_OPEN) {
       return EdgeType.SIMPLE;
     }
-    
+
     // Rule 3: → Closing Bracket (incoming) = SIMPLE edge
     if (targetNode.type === NodeType.BRACKET_CLOSE) {
       return EdgeType.SIMPLE;
     }
-    
+
     // Rule 4: Closing Bracket → (outgoing) = JOIN edge
     if (sourceNode.type === NodeType.BRACKET_CLOSE) {
       return EdgeType.JOIN;
@@ -52,13 +51,13 @@ export function useRuleService() {
     // HANDLE-SPECIFIC RULES (for condition-to-condition connections)
     if (sourceHandle && targetHandle) {
       // Join edge if using left/right handles (green handles)
-      if ((sourceHandle === 'right' || sourceHandle === 'left') && 
+      if ((sourceHandle === 'right' || sourceHandle === 'left') &&
           (targetHandle === 'left' || targetHandle === 'right')) {
         return EdgeType.JOIN;
       }
-      
+
       // Simple edge if using top/bottom handles (blue handles)
-      if ((sourceHandle === 'top' || sourceHandle === 'bottom') && 
+      if ((sourceHandle === 'top' || sourceHandle === 'bottom') &&
           (targetHandle === 'top' || targetHandle === 'bottom')) {
         return EdgeType.SIMPLE;
       }
@@ -66,8 +65,8 @@ export function useRuleService() {
 
     // FALLBACK RULES
     // Join edge case (condition to condition) - but only if no specific handles specified
-    if (sourceNode.type === NodeType.CONDITION && 
-        targetNode.type === NodeType.CONDITION && 
+    if (sourceNode.type === NodeType.CONDITION &&
+        targetNode.type === NodeType.CONDITION &&
         !sourceHandle && !targetHandle) {
       return EdgeType.JOIN;
     }
@@ -266,7 +265,7 @@ export function useRuleService() {
         // Find if there's an outgoing edge from the closing bracket
         const lastBracketNode = findMatchingCloseBracket(nodeId);
         if (lastBracketNode) {
-          const bracketOutEdges = getEdges.value.filter(edge => 
+          const bracketOutEdges = getEdges.value.filter(edge =>
             edge.source === lastBracketNode.id && edge.type === EdgeType.JOIN);
 
           if (bracketOutEdges.length > 0) {

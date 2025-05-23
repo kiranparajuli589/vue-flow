@@ -6,11 +6,8 @@
         <label>Rule Name</label>
         <input
           v-model="ruleName"
-          @input="validateName"
           placeholder="Enter rule name"
-          :class="{ 'error': nameError }"
         />
-        <div v-if="nameError" class="error-message">{{ nameError }}</div>
       </div>
     </div>
 
@@ -22,7 +19,6 @@
         <rule-flow-builder
           v-model="createPattern"
           :initial-rule="initialRule"
-          @validate="flowValid = $event"
           @flow-change="handleFlowChange"
         />
       </div>
@@ -31,27 +27,41 @@
         <h2>Replace Pattern</h2>
         <p>Define how to modify matched requests</p>
 
-        <div class="replace-pattern-tabs">
+        <div class="replace-pattern-type">
           <div
-            class="tab"
+            class="type-option"
             :class="{ 'active': replacePatternType === 'standard' }"
             @click="replacePatternType = 'standard'"
           >
-            Standard
+            <input
+              type="radio"
+              name="replaceType"
+              value="standard"
+              v-model="replacePatternType"
+              id="type-standard"
+            />
+            <label for="type-standard">Standard Replace</label>
           </div>
           <div
-            class="tab"
+            class="type-option"
             :class="{ 'active': replacePatternType === 'parameters' }"
             @click="replacePatternType = 'parameters'"
           >
-            Parameters
+            <input
+              type="radio"
+              name="replaceType"
+              value="parameters"
+              v-model="replacePatternType"
+              id="type-parameters"
+            />
+            <label for="type-parameters">Parameters</label>
           </div>
         </div>
 
         <component
           :is="replacePatternComponent"
           v-model="replacePattern"
-          @validate="replacePatternValid = $event"
+          :type="replacePatternType"
         />
       </div>
     </div>
@@ -60,7 +70,6 @@
       <button
         @click="saveRule"
         class="btn btn-primary"
-        :disabled="!isValid"
       >
         {{ isEditing ? 'Update Rule' : 'Create Rule' }}
       </button>
@@ -103,12 +112,9 @@ const emit = defineEmits(['submit', 'cancel']);
 
 // State
 const ruleName = ref('');
-const nameError = ref('');
 const createPattern = ref({ create_pattern: { conditions: [] }});
 const replacePattern = ref({});
 const replacePatternType = ref('standard');
-const flowValid = ref(false);
-const replacePatternValid = ref(false);
 
 // Add state for flow data
 const flowNodes = ref([]);
@@ -128,10 +134,6 @@ const replacePatternComponent = computed(() => {
     : ParametersReplacePattern;
 });
 
-const isValid = computed(() => {
-  return !!ruleName.value && !nameError.value && flowValid.value && replacePatternValid.value;
-});
-
 const initialRule = computed(() => {
   if (!props.initialRule) return null;
 
@@ -142,25 +144,7 @@ const initialRule = computed(() => {
 });
 
 // Methods
-function validateName() {
-  nameError.value = '';
-
-  if (!ruleName.value) {
-    nameError.value = 'Rule name is required';
-    return false;
-  }
-
-  if (ruleName.value.length < 3) {
-    nameError.value = 'Rule name must be at least 3 characters';
-    return false;
-  }
-
-  return true;
-}
-
 function saveRule() {
-  if (!isValid.value) return;
-
   // Prepare the final rule
   const rule = {
     name: ruleName.value,
@@ -269,16 +253,6 @@ onMounted(() => {
   max-width: 400px;
 }
 
-.rule-name-input input.error {
-  border-color: #f56565;
-}
-
-.error-message {
-  color: #f56565;
-  font-size: 12px;
-  margin-top: 4px;
-}
-
 .rule-builder-sections {
   display: flex;
   flex-direction: column;
@@ -305,24 +279,46 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-.replace-pattern-tabs {
+.replace-pattern-type {
   display: flex;
-  gap: 8px;
+  gap: 16px;
   margin-bottom: 16px;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 4px;
+  background-color: #f7fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
 }
 
-.tab {
-  padding: 8px 16px;
+.type-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  flex: 1;
+  justify-content: center;
+}
+
+.type-option:hover {
+  background-color: #edf2f7;
+}
+
+.type-option.active {
+  background-color: #4299e1;
+  color: white;
+}
+
+.type-option input[type="radio"] {
+  margin: 0;
+}
+
+.type-option label {
+  margin: 0;
   cursor: pointer;
   font-weight: 500;
-  color: #4a5568;
-  border-bottom: 2px solid transparent;
-}
-
-.tab.active {
-  color: #4299e1;
-  border-bottom-color: #4299e1;
+  font-size: 14px;
 }
 
 .rule-builder-actions {
@@ -346,13 +342,8 @@ onMounted(() => {
   border: none;
 }
 
-.btn-primary:hover:not(:disabled) {
+.btn-primary:hover {
   background-color: #3182ce;
-}
-
-.btn-primary:disabled {
-  background-color: #a0aec0;
-  cursor: not-allowed;
 }
 
 .btn-secondary {

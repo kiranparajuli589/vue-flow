@@ -2,6 +2,16 @@
 import { ref, computed } from 'vue';
 import { FieldType, OperatorType, JoinOperatorType } from '@/types/rule-builder.ts';
 
+// Centralized default values and display constants
+export const DEFAULTS = {
+  FIELD: FieldType.URI_PATH,
+  OPERATOR: OperatorType.EQUALS,
+  VALUE: '',
+  EMPTY_VALUE_DISPLAY: '""',
+  EMPTY_FUNCTION_DISPLAY: '__',
+  EMPTY_FUNCTION_ARG_DISPLAY: '""'
+} as const;
+
 export function useConditionService() {
   // Fields with enhanced metadata
   const fields = ref([
@@ -185,7 +195,7 @@ export function useConditionService() {
         if (!hostRegex.test(value)) {
           return 'Invalid hostname format. Use domain.com or domain.com:port';
         }
-        
+
         // Check for common mistakes
         if (value.startsWith('http://') || value.startsWith('https://')) {
           return 'Host should not include protocol (http/https)';
@@ -229,6 +239,7 @@ export function useConditionService() {
     joinOperators,
     validateField,
     getFieldConfig,
-    getFieldExamples
+    getFieldExamples,
+    DEFAULTS
   };
 }

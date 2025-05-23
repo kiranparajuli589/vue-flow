@@ -1,65 +1,68 @@
 // src/composables/useRulePreview.ts
-import { NodeType, JoinOperatorType } from '@/types/rule-builder';
+import { NodeType, JoinOperatorType } from '@/types/rule-builder'
+import { DEFAULTS } from '@/composables/useConditionService'
 
 export function useRulePreview() {
   /**
    * Convert create pattern from flow to readable format
    */
   function formatCreatePatternReadable(createPattern: any): string {
-    console.log('Formatting create pattern:', createPattern);
-    
-    if (!createPattern?.create_pattern?.conditions || createPattern.create_pattern.conditions.length === 0) {
-      return 'No conditions defined';
+    if (
+      !createPattern?.create_pattern?.conditions ||
+      createPattern.create_pattern.conditions.length === 0
+    ) {
+      return 'No conditions'
     }
 
-    const formatted = formatConditionsReadable(createPattern.create_pattern.conditions);
-    console.log('Formatted readable:', formatted);
-    
-    // Always return the formatted string, even if it contains incomplete conditions
-    return formatted || 'No conditions found';
+    const formatted = formatConditionsReadable(createPattern.create_pattern.conditions)
+    return formatted || 'Empty conditions'
   }
 
   /**
    * Recursively format conditions to readable text
    */
   function formatConditionsReadable(conditions: any[]): string {
-    if (!conditions || conditions.length === 0) return '';
+    if (!conditions || conditions.length === 0) return ''
 
-    const parts: string[] = [];
+    const parts: string[] = []
 
     for (let i = 0; i < conditions.length; i++) {
-      const condition = conditions[i];
-      
+      const condition = conditions[i]
+
       if (condition.isGroup) {
         // Group condition - wrap in parentheses
-        const groupContent = formatConditionsReadable(condition.conditions);
+        const groupContent = formatConditionsReadable(condition.conditions)
         if (groupContent) {
-          parts.push(`(${groupContent})`);
+          parts.push(`(${groupContent})`)
+        } else {
+          parts.push('()')
         }
       } else {
-        // Simple condition - use defaults if values are missing
-        const field = condition.field || 'req.uri.path'; // Default field
-        const operator = condition.operator ? formatOperatorReadable(condition.operator) : '=='; // Default operator
-        
-        // Handle value formatting - don't double-quote
-        let formattedValue: string;
+        // Simple condition - use defaults for empty values
+        const field = condition.field || DEFAULTS.FIELD
+        const operator = condition.operator
+          ? formatOperatorReadable(condition.operator)
+          : formatOperatorReadable(DEFAULTS.OPERATOR)
+
+        // Handle value formatting
+        let formattedValue: string
         if (condition.value !== undefined && condition.value !== null && condition.value !== '') {
-          formattedValue = `"${condition.value}"`;
+          formattedValue = `"${condition.value}"`
         } else {
-          formattedValue = '""'; // Just empty quotes, don't add extra quotes
+          formattedValue = DEFAULTS.EMPTY_VALUE_DISPLAY
         }
-        
-        parts.push(`${field} ${operator} ${formattedValue}`);
+
+        parts.push(`${field} ${operator} ${formattedValue}`)
       }
 
       // Add join operator if not the last condition
       if (i < conditions.length - 1) {
-        const joinOp = condition.joinOperator || JoinOperatorType.AND;
-        parts.push(` ${joinOp} `);
+        const joinOp = condition.joinOperator || JoinOperatorType.AND
+        parts.push(` ${joinOp} `)
       }
     }
 
-    return parts.join('');
+    return parts.join('')
   }
 
   /**
@@ -67,188 +70,208 @@ export function useRulePreview() {
    */
   function formatReplacePatternReadable(replacePattern: any, replaceType: string): string {
     if (!replacePattern) {
-      return 'No replace pattern defined';
+      return 'No replace pattern'
     }
 
     if (replaceType === 'standard') {
-      const field = replacePattern.field || 'req.uri.path'; // Default field
-      
-      if (replacePattern.withFn && replacePattern.fn) {
-        // Handle function argument formatting
-        let formattedArg: string;
-        if (replacePattern.fnArg !== undefined && replacePattern.fnArg !== null && replacePattern.fnArg !== '') {
-          formattedArg = `"${replacePattern.fnArg}"`;
+      const field = replacePattern.field || DEFAULTS.FIELD
+
+      if (replacePattern.withFn) {
+        // Handle function formatting
+        const fnName = replacePattern.fn || DEFAULTS.EMPTY_FUNCTION_DISPLAY
+
+        let formattedArg: string
+        if (
+          replacePattern.fnArg !== undefined &&
+          replacePattern.fnArg !== null &&
+          replacePattern.fnArg !== ''
+        ) {
+          formattedArg = `"${replacePattern.fnArg}"`
         } else {
-          formattedArg = '""';
+          formattedArg = DEFAULTS.EMPTY_FUNCTION_ARG_DISPLAY
         }
-        return `${field} = ${replacePattern.fn}(${formattedArg})`;
+
+        return `${field} = ${fnName}(${formattedArg})`
       } else {
         // Handle value formatting
-        let formattedValue: string;
-        if (replacePattern.value !== undefined && replacePattern.value !== null && replacePattern.value !== '') {
-          formattedValue = `"${replacePattern.value}"`;
+        let formattedValue: string
+        if (
+          replacePattern.value !== undefined &&
+          replacePattern.value !== null &&
+          replacePattern.value !== ''
+        ) {
+          formattedValue = `"${replacePattern.value}"`
         } else {
-          formattedValue = '""';
+          formattedValue = DEFAULTS.EMPTY_VALUE_DISPLAY
         }
-        return `${field} = ${formattedValue}`;
+        return `${field} = ${formattedValue}`
       }
     } else if (replaceType === 'parameters') {
       if (!replacePattern || replacePattern.length === 0) {
-        return 'No parameters defined';
+        return 'No parameters'
       }
-      
+
       const paramPairs = replacePattern.map((param: any) => {
-        const name = param.name || 'param';
+        const name = param.name || 'param'
         // Handle parameter value formatting
-        let formattedValue: string;
+        let formattedValue: string
         if (param.value !== undefined && param.value !== null && param.value !== '') {
-          formattedValue = `"${param.value}"`;
+          formattedValue = `"${param.value}"`
         } else {
-          formattedValue = '""';
+          formattedValue = DEFAULTS.EMPTY_VALUE_DISPLAY
         }
-        return `${name}=${formattedValue}`;
-      });
-      return `Set parameters: ${paramPairs.join(', ')}`;
+        return `${name}=${formattedValue}`
+      })
+      return `Set parameters: ${paramPairs.join(', ')}`
     }
 
-    return 'Unknown replace pattern type';
+    return 'Unknown replace pattern type'
   }
 
   /**
    * Convert flow to complete rule JSON payload
    */
   function generateRulePayload(
-    createPattern: any, 
-    replacePattern: any, 
+    createPattern: any,
+    replacePattern: any,
     replaceType: string,
-    ruleName?: string
+    ruleName?: string,
   ): any {
     const payload: any = {
-      create_pattern: createPattern?.create_pattern || { conditions: [] }
-    };
+      create_pattern: createPattern?.create_pattern || { conditions: [] },
+    }
 
     // Add rule name if provided
     if (ruleName) {
-      payload.name = ruleName;
+      payload.name = ruleName
     }
 
     // Add replace pattern based on type
     if (replaceType === 'standard') {
-      payload.replace_pattern = replacePattern || {};
+      payload.replace_pattern = replacePattern || {}
     } else if (replaceType === 'parameters') {
-      payload.parameters = replacePattern || [];
+      payload.parameters = replacePattern || []
     }
 
-    return payload;
+    return payload
   }
 
   /**
    * Generate flow payload from provided nodes and edges
    */
   function generateFlowPayload(nodes: any[], edges: any[]): any {
-    console.log('Generating flow payload from:', { nodes, edges });
-
     if (!nodes || nodes.length === 0) {
       return {
-        create_pattern: { conditions: [] }
-      };
+        create_pattern: { conditions: [] },
+      }
+    }
+
+    // Find condition nodes
+    const conditionNodes = nodes.filter((node) => node.type === NodeType.CONDITION)
+
+    if (conditionNodes.length === 0) {
+      return {
+        create_pattern: { conditions: [] },
+      }
     }
 
     // Find root nodes (nodes with no incoming edges) OR if no edges exist, use all condition nodes
-    let rootNodeIds: string[];
-    
+    let rootNodeIds: string[]
+
     if (!edges || edges.length === 0) {
-      // No edges - treat all condition nodes as root nodes
-      rootNodeIds = nodes
-        .filter(node => node.type === NodeType.CONDITION)
-        .map(node => node.id);
+      // No edges - treat all condition nodes as separate conditions
+      rootNodeIds = conditionNodes.map((node) => node.id)
     } else {
       // Has edges - find actual root nodes
       rootNodeIds = nodes
-        .filter(node => !edges.some(edge => edge.target === node.id))
-        .map(node => node.id);
+        .filter((node) => !edges.some((edge) => edge.target === node.id))
+        .map((node) => node.id)
     }
 
-    console.log('Root node IDs:', rootNodeIds);
-
     // Store positions for re-importing later
-    const positions = nodes.reduce((acc, node) => {
-      acc[node.id] = { x: node.position.x, y: node.position.y };
-      return acc;
-    }, {} as Record<string, { x: number; y: number }>);
+    const positions = nodes.reduce(
+      (acc, node) => {
+        acc[node.id] = { x: node.position.x, y: node.position.y }
+        return acc
+      },
+      {} as Record<string, { x: number; y: number }>,
+    )
 
     // Build conditions from root nodes
-    let conditions: any[] = [];
+    let conditions: any[] = []
 
-    if (rootNodeIds.length === 0 && nodes.length > 0) {
-      // Fallback: if no clear root nodes but we have nodes, try to process all condition nodes
-      const conditionNodes = nodes.filter(node => node.type === NodeType.CONDITION);
+    if (rootNodeIds.length === 0 && conditionNodes.length > 0) {
+      // Fallback: if no clear root nodes but we have condition nodes, process them separately
+      // This handles disconnected nodes by wrapping each in brackets []
       for (const node of conditionNodes) {
         conditions.push({
           id: node.id,
-          field: node.data.field || 'req.uri.path', // Use default if missing
-          operator: node.data.operator || '==',       // Use default if missing
-          value: node.data.value || '',               // Use empty string if missing
-          isGroup: false
-        });
+          field: node.data.field || DEFAULTS.FIELD,
+          operator: node.data.operator || DEFAULTS.OPERATOR,
+          value: node.data.value || DEFAULTS.VALUE,
+          isGroup: false,
+        })
       }
     } else {
       // Normal case: build from root nodes
       for (const rootNodeId of rootNodeIds) {
-        const rootConditions = buildConditionsFromNode(rootNodeId, nodes, edges);
-        conditions = conditions.concat(rootConditions);
+        const rootConditions = buildConditionsFromNode(rootNodeId, nodes, edges)
+        conditions = conditions.concat(rootConditions)
       }
     }
-
-    console.log('Generated conditions:', conditions);
 
     return {
       create_pattern: {
         conditions,
-        positions
-      }
-    };
+        positions,
+      },
+    }
   }
 
   /**
    * Recursively build conditions from a node and its descendants
    */
-  function buildConditionsFromNode(nodeId: string, nodes: any[], edges: any[], visited = new Set<string>()): any[] {
-    if (visited.has(nodeId)) return [];
-    visited.add(nodeId);
+  function buildConditionsFromNode(
+    nodeId: string,
+    nodes: any[],
+    edges: any[],
+    visited = new Set<string>(),
+  ): any[] {
+    if (visited.has(nodeId)) return []
+    visited.add(nodeId)
 
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node) return [];
+    const node = nodes.find((n) => n.id === nodeId)
+    if (!node) return []
 
     // Get outgoing edges from this node
-    const outgoingEdges = edges.filter(edge => edge.source === nodeId);
+    const outgoingEdges = edges.filter((edge) => edge.source === nodeId)
 
     // Handle condition node
     if (node.type === NodeType.CONDITION) {
       const condition: any = {
         id: nodeId,
-        field: node.data.field || 'req.uri.path', // Use default if missing
-        operator: node.data.operator || '==',     // Use default if missing  
-        value: node.data.value || '',             // Use empty string if missing
-        isGroup: false
-      };
+        field: node.data.field || DEFAULTS.FIELD,
+        operator: node.data.operator || DEFAULTS.OPERATOR,
+        value: node.data.value || DEFAULTS.VALUE,
+        isGroup: false,
+      }
 
       // If no outgoing edges, return just this condition
       if (outgoingEdges.length === 0) {
-        return [condition];
+        return [condition]
       }
 
       // Add join operator from JOIN edges
-      const joinEdges = outgoingEdges.filter(edge => edge.type === 'join');
+      const joinEdges = outgoingEdges.filter((edge) => edge.type === 'join')
       if (joinEdges.length > 0 && joinEdges[0].data?.operator) {
-        condition.joinOperator = joinEdges[0].data.operator;
+        condition.joinOperator = joinEdges[0].data.operator
       }
 
       // Process the next node
-      const nextNodeId = outgoingEdges[0].target;
-      const nextConditions = buildConditionsFromNode(nextNodeId, nodes, edges, visited);
+      const nextNodeId = outgoingEdges[0].target
+      const nextConditions = buildConditionsFromNode(nextNodeId, nodes, edges, visited)
 
-      return [condition, ...nextConditions];
+      return [condition, ...nextConditions]
     }
 
     // Handle opening bracket (group)
@@ -257,35 +280,36 @@ export function useRulePreview() {
         id: nodeId,
         isGroup: true,
         conditions: [],
-        joinOperator: JoinOperatorType.AND
-      };
+        joinOperator: JoinOperatorType.AND,
+      }
 
       // Find content within brackets
-      const innerConditions = traverseBracketContent(nodeId, nodes, edges, visited);
+      const innerConditions = traverseBracketContent(nodeId, nodes, edges, visited)
       if (innerConditions.length > 0) {
-        group.conditions = innerConditions;
+        group.conditions = innerConditions
 
         // Find the matching closing bracket and check for outgoing join edges
-        const lastBracketNode = findMatchingCloseBracket(nodeId, nodes, edges);
+        const lastBracketNode = findMatchingCloseBracket(nodeId, nodes, edges)
         if (lastBracketNode) {
-          const bracketOutEdges = edges.filter(edge => 
-            edge.source === lastBracketNode.id && edge.type === 'join');
+          const bracketOutEdges = edges.filter(
+            (edge) => edge.source === lastBracketNode.id && edge.type === 'join',
+          )
 
           if (bracketOutEdges.length > 0) {
             // Get the join operator from this edge
             if (bracketOutEdges[0].data?.operator) {
-              group.joinOperator = bracketOutEdges[0].data.operator;
+              group.joinOperator = bracketOutEdges[0].data.operator
             }
 
             // Process the next node after the bracket group
-            const nextNodeId = bracketOutEdges[0].target;
-            const nextConditions = buildConditionsFromNode(nextNodeId, nodes, edges, visited);
+            const nextNodeId = bracketOutEdges[0].target
+            const nextConditions = buildConditionsFromNode(nextNodeId, nodes, edges, visited)
 
-            return [group, ...nextConditions];
+            return [group, ...nextConditions]
           }
         }
 
-        return [group];
+        return [group]
       }
     }
 
@@ -293,90 +317,95 @@ export function useRulePreview() {
     if (node.type === NodeType.BRACKET_CLOSE) {
       if (outgoingEdges.length > 0) {
         // If there's an outgoing edge, follow it
-        const nextNodeId = outgoingEdges[0].target;
-        return buildConditionsFromNode(nextNodeId, nodes, edges, visited);
+        const nextNodeId = outgoingEdges[0].target
+        return buildConditionsFromNode(nextNodeId, nodes, edges, visited)
       }
-      return [];
+      return []
     }
 
-    return [];
+    return []
   }
 
   /**
    * Find content between opening and closing brackets
    */
-  function traverseBracketContent(openBracketId: string, nodes: any[], edges: any[], visited: Set<string>): any[] {
-    const openNode = nodes.find(n => n.id === openBracketId);
+  function traverseBracketContent(
+    openBracketId: string,
+    nodes: any[],
+    edges: any[],
+    visited: Set<string>,
+  ): any[] {
+    const openNode = nodes.find((n) => n.id === openBracketId)
     if (!openNode || openNode.type !== NodeType.BRACKET_OPEN || visited.has(openBracketId)) {
-      return [];
+      return []
     }
 
     // Get the outgoing edge from the opening bracket
-    const outgoingEdges = edges.filter(edge => edge.source === openBracketId);
+    const outgoingEdges = edges.filter((edge) => edge.source === openBracketId)
 
     if (outgoingEdges.length === 0) {
-      return [];
+      return []
     }
 
     // Get the next node after the opening bracket
-    const nextNodeId = outgoingEdges[0].target;
-    const nextNode = nodes.find(n => n.id === nextNodeId);
+    const nextNodeId = outgoingEdges[0].target
+    const nextNode = nodes.find((n) => n.id === nextNodeId)
 
     if (!nextNode) {
-      return [];
+      return []
     }
 
     // If next node is a closing bracket, there's no content
     if (nextNode.type === NodeType.BRACKET_CLOSE) {
-      return [];
+      return []
     }
 
     // Process content within brackets
-    return buildConditionsFromNode(nextNodeId, nodes, edges, new Set([...visited, openBracketId]));
+    return buildConditionsFromNode(nextNodeId, nodes, edges, new Set([...visited, openBracketId]))
   }
 
   /**
    * Find the matching closing bracket for an opening bracket
    */
   function findMatchingCloseBracket(openBracketId: string, nodes: any[], edges: any[]): any {
-    const openNode = nodes.find(n => n.id === openBracketId);
+    const openNode = nodes.find((n) => n.id === openBracketId)
     if (!openNode || openNode.type !== NodeType.BRACKET_OPEN) {
-      return null;
+      return null
     }
 
     // BFS to find the closing bracket
-    const visited = new Set<string>();
-    const queue: string[] = [];
+    const visited = new Set<string>()
+    const queue: string[] = []
 
     // Start with the outgoing nodes from the opening bracket
-    const outgoingEdges = edges.filter(edge => edge.source === openBracketId);
-    outgoingEdges.forEach(edge => queue.push(edge.target));
+    const outgoingEdges = edges.filter((edge) => edge.source === openBracketId)
+    outgoingEdges.forEach((edge) => queue.push(edge.target))
 
     while (queue.length > 0) {
-      const currentId = queue.shift()!;
+      const currentId = queue.shift()!
 
       if (visited.has(currentId)) {
-        continue;
+        continue
       }
 
-      visited.add(currentId);
-      const current = nodes.find(n => n.id === currentId);
+      visited.add(currentId)
+      const current = nodes.find((n) => n.id === currentId)
 
       if (!current) {
-        continue;
+        continue
       }
 
       // Found a closing bracket
       if (current.type === NodeType.BRACKET_CLOSE) {
-        return current;
+        return current
       }
 
       // Add outgoing nodes to the queue
-      const currentOutgoingEdges = edges.filter(edge => edge.source === currentId);
-      currentOutgoingEdges.forEach(edge => queue.push(edge.target));
+      const currentOutgoingEdges = edges.filter((edge) => edge.source === currentId)
+      currentOutgoingEdges.forEach((edge) => queue.push(edge.target))
     }
 
-    return null;
+    return null
   }
 
   /**
@@ -384,82 +413,19 @@ export function useRulePreview() {
    */
   function formatOperatorReadable(operator: string): string {
     switch (operator) {
-      case '~~': return 'contains';
-      case 'starts_with': return 'starts with';
-      case 'ends_with': return 'ends with';
-      case '==': return '==';
-      case '!=': return '!=';
-      default: return operator;
+      case '~~':
+        return 'contains'
+      case 'starts_with':
+        return 'starts with'
+      case 'ends_with':
+        return 'ends with'
+      case '==':
+        return '=='
+      case '!=':
+        return '!='
+      default:
+        return operator
     }
-  }
-
-  /**
-   * Validate if rule is complete and valid
-   */
-  function validateRule(createPattern: any, replacePattern: any, replaceType: string, nodes: any[] = []): { valid: boolean; message: string } {
-    // Check if we have any nodes at all
-    if (!nodes || nodes.length === 0) {
-      return { valid: false, message: 'Add some conditions to start building your rule' };
-    }
-
-    // Check if we have condition nodes
-    const conditionNodes = nodes.filter(node => node.type === NodeType.CONDITION);
-    if (conditionNodes.length === 0) {
-      return { valid: false, message: 'Add at least one condition node' };
-    }
-
-    // Check create pattern structure - be more flexible about the structure
-    const hasConditions = createPattern?.create_pattern?.conditions && 
-                         createPattern.create_pattern.conditions.length > 0;
-    
-    if (!hasConditions) {
-      // If we have condition nodes but no flow structure, it's still preview-worthy
-      return { valid: false, message: 'Connect your condition nodes to create a valid flow' };
-    }
-
-    // For preview purposes, we'll show the rule even if some fields are incomplete
-    // The individual condition nodes will handle their own validation
-    
-    // Only validate replace pattern if it has some content
-    if (replaceType === 'standard' && replacePattern && replacePattern.field) {
-      if (!replacePattern.withFn && !replacePattern.value) {
-        return { valid: false, message: 'Replace pattern value is required' };
-      }
-      if (replacePattern.withFn && (!replacePattern.fn || !replacePattern.fnArg)) {
-        return { valid: false, message: 'Function and argument are required when using functions' };
-      }
-    } else if (replaceType === 'parameters' && replacePattern && replacePattern.length > 0) {
-      const hasInvalidParams = replacePattern.some((param: any) => !param.name || !param.value);
-      if (hasInvalidParams) {
-        return { valid: false, message: 'All parameters must have name and value' };
-      }
-    }
-
-    // If we reach here, show the preview (even if some condition values are empty)
-    return { valid: true, message: 'Rule preview' };
-  }
-
-  /**
-   * Check for empty conditions recursively
-   */
-  function checkForEmptyConditions(conditions: any[]): boolean {
-    for (const condition of conditions) {
-      if (condition.isGroup) {
-        if (checkForEmptyConditions(condition.conditions)) {
-          return true;
-        }
-      } else {
-        // Check if any required field is missing or empty
-        if (!condition.field || 
-            !condition.operator || 
-            condition.value === undefined || 
-            condition.value === null || 
-            condition.value === '') {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   return {
@@ -467,7 +433,6 @@ export function useRulePreview() {
     formatReplacePatternReadable,
     generateRulePayload,
     generateFlowPayload,
-    validateRule,
-    formatOperatorReadable
-  };
+    formatOperatorReadable,
+  }
 }

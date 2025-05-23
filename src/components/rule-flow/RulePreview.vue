@@ -1,32 +1,19 @@
-<!-- src/components/rule-flow/RulePreview.vue (Enhanced) -->
+<!-- src/components/rule-flow/RulePreview.vue (Clean Preview) -->
 <template>
   <div class="rule-preview">
-    <!-- Validation Status -->
-    <div class="validation-status" :class="{ 'valid': validation.valid, 'invalid': !validation.valid }">
-      <div class="status-indicator">
-        <svg v-if="validation.valid" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-        </svg>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-        </svg>
-        <span class="status-text">{{ validation.valid ? 'Valid Rule' : validation.message }}</span>
-      </div>
-    </div>
-
     <!-- Preview Content -->
-    <div v-if="validation.valid" class="preview-content">
+    <div class="preview-content">
       <!-- Format Toggle -->
       <div class="format-toggle">
-        <button 
-          @click="currentFormat = 'readable'" 
+        <button
+          @click="currentFormat = 'readable'"
           :class="{ 'active': currentFormat === 'readable' }"
           class="toggle-btn"
         >
           📖 Readable
         </button>
-        <button 
-          @click="currentFormat = 'json'" 
+        <button
+          @click="currentFormat = 'json'"
           :class="{ 'active': currentFormat === 'json' }"
           class="toggle-btn"
         >
@@ -68,24 +55,11 @@
         <pre class="json-payload">{{ formattedJsonPayload }}</pre>
       </div>
     </div>
-
-    <!-- Invalid State -->
-    <div v-else class="invalid-content">
-      <div class="invalid-message">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-        </svg>
-        <div class="message-content">
-          <h4>Rule Incomplete</h4>
-          <p>{{ validation.message }}</p>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 import { useRulePreview } from '@/composables/useRulePreview';
 
 // Props
@@ -99,12 +73,11 @@ const props = defineProps<{
 }>();
 
 // Composable
-const { 
-  formatCreatePatternReadable, 
-  formatReplacePatternReadable, 
+const {
+  formatCreatePatternReadable,
+  formatReplacePatternReadable,
   generateRulePayload,
-  generateFlowPayload,
-  validateRule 
+  generateFlowPayload
 } = useRulePreview();
 
 // State
@@ -116,14 +89,13 @@ const currentCreatePattern = computed(() => {
   if (props.createPattern && props.createPattern.create_pattern?.conditions?.length > 0) {
     return props.createPattern;
   }
-  
+
   // Otherwise, generate from provided nodes and edges
   if (props.nodes && props.edges) {
     const flowPayload = generateFlowPayload(props.nodes, props.edges);
-    console.log('Generated flow payload:', flowPayload);
     return flowPayload;
   }
-  
+
   // Fallback
   return { create_pattern: { conditions: [] } };
 });
@@ -136,16 +108,6 @@ const currentReplaceType = computed(() => {
   return props.replaceType || 'standard';
 });
 
-// Validation
-const validation = computed(() => {
-  return validateRule(
-    currentCreatePattern.value, 
-    currentReplacePattern.value, 
-    currentReplaceType.value,
-    props.nodes || []
-  );
-});
-
 // Readable formats
 const readableCreatePattern = computed(() => {
   return formatCreatePatternReadable(currentCreatePattern.value);
@@ -153,7 +115,7 @@ const readableCreatePattern = computed(() => {
 
 const readableReplacePattern = computed(() => {
   return formatReplacePatternReadable(
-    currentReplacePattern.value, 
+    currentReplacePattern.value,
     currentReplaceType.value
   );
 });
@@ -176,7 +138,6 @@ const formattedJsonPayload = computed(() => {
 async function copyToClipboard() {
   try {
     await navigator.clipboard.writeText(formattedJsonPayload.value);
-    // You could add a toast notification here
     console.log('JSON payload copied to clipboard');
   } catch (err) {
     console.error('Failed to copy to clipboard:', err);
@@ -195,13 +156,6 @@ async function copyToClipboard() {
     document.body.removeChild(textArea);
   }
 }
-
-// Watch for changes and switch to readable format when data changes
-watch([currentCreatePattern, currentReplacePattern], () => {
-  if (currentFormat.value === 'json') {
-    currentFormat.value = 'readable';
-  }
-}, { deep: true });
 </script>
 
 <style scoped>
@@ -210,46 +164,6 @@ watch([currentCreatePattern, currentReplacePattern], () => {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   overflow: hidden;
-}
-
-/* Validation Status */
-.validation-status {
-  padding: 12px 16px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.validation-status.valid {
-  background-color: #f0fff4;
-  border-bottom-color: #9ae6b4;
-}
-
-.validation-status.invalid {
-  background-color: #fff5f5;
-  border-bottom-color: #fed7d7;
-}
-
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.validation-status.valid .status-indicator {
-  color: #38a169;
-}
-
-.validation-status.invalid .status-indicator {
-  color: #e53e3e;
-}
-
-.status-indicator svg {
-  width: 20px;
-  height: 20px;
-}
-
-.status-text {
-  font-weight: 600;
-  font-size: 14px;
 }
 
 /* Preview Content */
@@ -390,53 +304,22 @@ watch([currentCreatePattern, currentReplacePattern], () => {
   white-space: pre;
 }
 
-/* Invalid Content */
-.invalid-content {
-  padding: 24px 16px;
-}
-
-.invalid-message {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  color: #e53e3e;
-}
-
-.invalid-message svg {
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.message-content h4 {
-  margin: 0 0 4px 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.message-content p {
-  margin: 0;
-  font-size: 14px;
-  color: #718096;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .format-toggle {
     flex-direction: column;
   }
-  
+
   .toggle-btn {
     text-align: center;
   }
-  
+
   .json-header {
     flex-direction: column;
     gap: 8px;
     align-items: flex-start;
   }
-  
+
   .copy-btn {
     align-self: flex-end;
   }
