@@ -1,287 +1,444 @@
-<!-- src/components/rule-flow/RulePreview.vue (Updated for Edge Joins) -->
+<!-- src/components/rule-flow/RulePreview.vue (Enhanced) -->
 <template>
   <div class="rule-preview">
-    <div v-if="isValid" class="preview-valid">
-      <div class="preview-section">
-        <h4>Human-Readable</h4>
-        <div class="readable-rule">{{ readableRule }}</div>
-      </div>
-
-      <div class="preview-section">
-        <h4>Lua Expression</h4>
-        <pre class="lua-expression">{{ luaExpression }}</pre>
+    <!-- Validation Status -->
+    <div class="validation-status" :class="{ 'valid': validation.valid, 'invalid': !validation.valid }">
+      <div class="status-indicator">
+        <svg v-if="validation.valid" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+        </svg>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+        <span class="status-text">{{ validation.valid ? 'Valid Rule' : validation.message }}</span>
       </div>
     </div>
 
-    <div v-else class="preview-invalid">
-      <div class="error-message">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+    <!-- Preview Content -->
+    <div v-if="validation.valid" class="preview-content">
+      <!-- Format Toggle -->
+      <div class="format-toggle">
+        <button 
+          @click="currentFormat = 'readable'" 
+          :class="{ 'active': currentFormat === 'readable' }"
+          class="toggle-btn"
+        >
+          📖 Readable
+        </button>
+        <button 
+          @click="currentFormat = 'json'" 
+          :class="{ 'active': currentFormat === 'json' }"
+          class="toggle-btn"
+        >
+          📄 JSON Payload
+        </button>
+      </div>
+
+      <!-- Readable Format -->
+      <div v-if="currentFormat === 'readable'" class="readable-format">
+        <!-- Create Pattern -->
+        <div class="pattern-section">
+          <h4 class="section-title">Create Pattern</h4>
+          <div class="pattern-content create-pattern">
+            {{ readableCreatePattern }}
+          </div>
+        </div>
+
+        <!-- Replace Pattern -->
+        <div class="pattern-section">
+          <h4 class="section-title">Replace Pattern</h4>
+          <div class="pattern-content replace-pattern">
+            {{ readableReplacePattern }}
+          </div>
+        </div>
+      </div>
+
+      <!-- JSON Format -->
+      <div v-if="currentFormat === 'json'" class="json-format">
+        <div class="json-header">
+          <h4 class="section-title">Complete Rule Payload</h4>
+          <button @click="copyToClipboard" class="copy-btn" title="Copy to clipboard">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+            </svg>
+            Copy
+          </button>
+        </div>
+        <pre class="json-payload">{{ formattedJsonPayload }}</pre>
+      </div>
+    </div>
+
+    <!-- Invalid State -->
+    <div v-else class="invalid-content">
+      <div class="invalid-message">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
         </svg>
-        <span>{{ validationMessage }}</span>
+        <div class="message-content">
+          <h4>Rule Incomplete</h4>
+          <p>{{ validation.message }}</p>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useVueFlow } from '@vue-flow/core';
-import { NodeType, JoinOperatorType } from '@/types/rule-builder';
-import { useRuleService } from '@/composables/useRuleService';
+import { ref, computed, watch } from 'vue';
+import { useRulePreview } from '@/composables/useRulePreview';
 
 // Props
-defineProps<{
-  elements: any[];
+const props = defineProps<{
+  createPattern?: any;
+  replacePattern?: any;
+  replaceType?: string;
+  ruleName?: string;
+  nodes?: any[];
+  edges?: any[];
 }>();
 
-// Get Vue Flow utilities
-const { getNodes, getEdges } = useVueFlow();
+// Composable
+const { 
+  formatCreatePatternReadable, 
+  formatReplacePatternReadable, 
+  generateRulePayload,
+  generateFlowPayload,
+  validateRule 
+} = useRulePreview();
 
-// Get rule service for validation
-const { validateFlow } = useRuleService();
+// State
+const currentFormat = ref<'readable' | 'json'>('readable');
 
-// Determine if rule is valid
-const isValid = computed(() => validateFlow.value.valid);
-
-// Get validation message
-const validationMessage = computed(() => validateFlow.value.message);
-
-// Generate readable rule text
-const readableRule = computed(() => {
-  if (!isValid.value) return '';
-
-  // Generate a human-readable representation based on the current nodes and edges
-  return formatReadableRule();
+// Computed properties
+const currentCreatePattern = computed(() => {
+  // If createPattern is provided as prop, use it
+  if (props.createPattern && props.createPattern.create_pattern?.conditions?.length > 0) {
+    return props.createPattern;
+  }
+  
+  // Otherwise, generate from provided nodes and edges
+  if (props.nodes && props.edges) {
+    const flowPayload = generateFlowPayload(props.nodes, props.edges);
+    console.log('Generated flow payload:', flowPayload);
+    return flowPayload;
+  }
+  
+  // Fallback
+  return { create_pattern: { conditions: [] } };
 });
 
-// Generate Lua expression
-const luaExpression = computed(() => {
-  if (!isValid.value) return '';
-
-  // Generate a Lua expression from the rule
-  return formatLuaExpression();
+const currentReplacePattern = computed(() => {
+  return props.replacePattern || {};
 });
 
-// Find all root nodes (nodes with no incoming edges)
-function findRootNodes() {
-  const nodes = getNodes.value;
-  const edges = getEdges.value;
+const currentReplaceType = computed(() => {
+  return props.replaceType || 'standard';
+});
 
-  return nodes.filter(node =>
-    !edges.some(edge => edge.target === node.id)
+// Validation
+const validation = computed(() => {
+  return validateRule(
+    currentCreatePattern.value, 
+    currentReplacePattern.value, 
+    currentReplaceType.value,
+    props.nodes || []
   );
-}
+});
 
-// Format human-readable rule text
-function formatReadableRule() {
-  const rootNodes = findRootNodes();
-  let result = '';
+// Readable formats
+const readableCreatePattern = computed(() => {
+  return formatCreatePatternReadable(currentCreatePattern.value);
+});
 
-  for (const rootNode of rootNodes) {
-    result += formatNodePath(rootNode.id);
-  }
+const readableReplacePattern = computed(() => {
+  return formatReplacePatternReadable(
+    currentReplacePattern.value, 
+    currentReplaceType.value
+  );
+});
 
-  return result || 'No valid rule constructed yet.';
-}
+// JSON payload
+const jsonPayload = computed(() => {
+  return generateRulePayload(
+    currentCreatePattern.value,
+    currentReplacePattern.value,
+    currentReplaceType.value,
+    props.ruleName
+  );
+});
 
-// Format Lua expression
-function formatLuaExpression() {
-  const rootNodes = findRootNodes();
-  let result = '';
+const formattedJsonPayload = computed(() => {
+  return JSON.stringify(jsonPayload.value, null, 2);
+});
 
-  for (const rootNode of rootNodes) {
-    result += formatNodePathAsLua(rootNode.id);
-  }
-
-  return result || '-- No valid rule constructed yet';
-}
-
-// Recursively follow node path to format readable rule
-function formatNodePath(nodeId: string, depth = 0, visited = new Set<string>()) {
-  if (visited.has(nodeId)) return '';
-  visited.add(nodeId);
-
-  const node = getNodes.value.find(n => n.id === nodeId);
-  if (!node) return '';
-
-  const indent = '  '.repeat(depth);
-  let result = '';
-
-  // Format based on node type
-  if (node.type === NodeType.CONDITION) {
-    result += `${indent}${node.data.field} ${formatOperator(node.data.operator)} "${node.data.value}"`;
-  } else if (node.type === NodeType.BRACKET_OPEN) {
-    result += `${indent}(`;
-  } else if (node.type === NodeType.BRACKET_CLOSE) {
-    result += `${indent})`;
-  }
-
-  // Find outgoing edges
-  const outEdges = getEdges.value.filter(edge => edge.source === nodeId);
-
-  if (outEdges.length > 0) {
-    const nextNodeId = outEdges[0].target;
-    const joinOperator = outEdges[0].data?.operator || JoinOperatorType.AND;
-
-    // Add join operator if going to another node
-    const nextNode = getNodes.value.find(n => n.id === nextNodeId);
-
-    if (nextNode) {
-      // Special case for brackets - don't add operators between opening and closing brackets
-      if (
-        (node.type === NodeType.BRACKET_OPEN && nextNode.type === NodeType.BRACKET_CLOSE) ||
-        (node.type === NodeType.BRACKET_CLOSE && nextNode.type === NodeType.BRACKET_OPEN)
-      ) {
-        result += "\n" + formatNodePath(nextNodeId, depth, visited);
-      } else if (node.type === NodeType.BRACKET_OPEN) {
-        // After an opening bracket, increase indent but don't add operator
-        result += "\n" + formatNodePath(nextNodeId, depth + 1, visited);
-      } else if (nextNode.type === NodeType.BRACKET_CLOSE) {
-        // Before a closing bracket, just add the bracket on a new line
-        result += "\n" + formatNodePath(nextNodeId, depth - 1, visited);
-      } else {
-        // Normal case - add operator and continue
-        result += ` ${joinOperator}\n` + formatNodePath(nextNodeId, depth, visited);
-      }
+// Copy to clipboard functionality
+async function copyToClipboard() {
+  try {
+    await navigator.clipboard.writeText(formattedJsonPayload.value);
+    // You could add a toast notification here
+    console.log('JSON payload copied to clipboard');
+  } catch (err) {
+    console.error('Failed to copy to clipboard:', err);
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea');
+    textArea.value = formattedJsonPayload.value;
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      console.log('JSON payload copied to clipboard (fallback)');
+    } catch (fallbackErr) {
+      console.error('Fallback copy failed:', fallbackErr);
     }
-  }
-
-  return result;
-}
-
-// Recursively follow node path to format Lua expression
-function formatNodePathAsLua(nodeId: string, visited = new Set<string>()) {
-  if (visited.has(nodeId)) return '';
-  visited.add(nodeId);
-
-  const node = getNodes.value.find(n => n.id === nodeId);
-  if (!node) return '';
-
-  let result = '';
-
-  // Format based on node type
-  if (node.type === NodeType.CONDITION) {
-    if (node.data.operator === 'starts_with') {
-      result += `string.sub(${node.data.field}, 1, ${node.data.value.length}) == "${node.data.value}"`;
-    } else if (node.data.operator === 'ends_with') {
-      result += `string.sub(${node.data.field}, -${node.data.value.length}) == "${node.data.value}"`;
-    } else if (node.data.operator === '~~') {
-      result += `string.find(${node.data.field}, "${node.data.value}") ~= nil`;
-    } else {
-      result += `${node.data.field} ${node.data.operator} "${node.data.value}"`;
-    }
-  } else if (node.type === NodeType.BRACKET_OPEN) {
-    result += '(';
-  } else if (node.type === NodeType.BRACKET_CLOSE) {
-    result += ')';
-  }
-
-  // Find outgoing edges
-  const outEdges = getEdges.value.filter(edge => edge.source === nodeId);
-
-  if (outEdges.length > 0) {
-    const nextNodeId = outEdges[0].target;
-    const joinOperator = outEdges[0].data?.operator || JoinOperatorType.AND;
-
-    // Add join operator if going to another node
-    const nextNode = getNodes.value.find(n => n.id === nextNodeId);
-
-    if (nextNode) {
-      // Special case for brackets - don't add operators between opening and contents or closing brackets
-      if (
-        (node.type === NodeType.BRACKET_OPEN && nextNode.type === NodeType.BRACKET_CLOSE) ||
-        (node.type === NodeType.BRACKET_CLOSE && nextNode.type === NodeType.BRACKET_OPEN)
-      ) {
-        result += formatNodePathAsLua(nextNodeId, visited);
-      } else if (node.type === NodeType.BRACKET_OPEN) {
-        // After an opening bracket, don't add operator
-        result += formatNodePathAsLua(nextNodeId, visited);
-      } else if (nextNode.type === NodeType.BRACKET_CLOSE) {
-        // Before a closing bracket, don't add operator
-        result += formatNodePathAsLua(nextNodeId, visited);
-      } else {
-        // Normal case - add operator and continue
-        result += ` ${joinOperator} ` + formatNodePathAsLua(nextNodeId, visited);
-      }
-    }
-  }
-
-  return result;
-}
-
-// Helper function to format operator for display
-function formatOperator(operator: string) {
-  switch (operator) {
-    case '~~': return 'contains';
-    case 'starts_with': return 'starts with';
-    case 'ends_with': return 'ends with';
-    default: return operator;
+    document.body.removeChild(textArea);
   }
 }
+
+// Watch for changes and switch to readable format when data changes
+watch([currentCreatePattern, currentReplacePattern], () => {
+  if (currentFormat.value === 'json') {
+    currentFormat.value = 'readable';
+  }
+}, { deep: true });
 </script>
 
 <style scoped>
 .rule-preview {
-  padding: 16px;
   background-color: #f8fafc;
-  border-radius: 6px;
-}
-
-.preview-valid {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.preview-section {
-  margin-bottom: 16px;
-}
-
-.preview-section h4 {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #2d3748;
-}
-
-.readable-rule {
-  font-family: monospace;
-  white-space: pre-wrap;
-  background-color: white;
-  padding: 12px;
   border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  line-height: 1.5;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-.lua-expression {
-  font-family: monospace;
-  background-color: #2d3748;
-  color: #e2e8f0;
-  padding: 12px;
-  border-radius: 4px;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  font-size: 14px;
+/* Validation Status */
+.validation-status {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.preview-invalid {
-  padding: 12px;
+.validation-status.valid {
+  background-color: #f0fff4;
+  border-bottom-color: #9ae6b4;
+}
+
+.validation-status.invalid {
   background-color: #fff5f5;
-  border: 1px solid #feb2b2;
-  border-radius: 4px;
+  border-bottom-color: #fed7d7;
 }
 
-.error-message {
+.status-indicator {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.validation-status.valid .status-indicator {
+  color: #38a169;
+}
+
+.validation-status.invalid .status-indicator {
   color: #e53e3e;
 }
 
-.error-message svg {
+.status-indicator svg {
   width: 20px;
   height: 20px;
+}
+
+.status-text {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Preview Content */
+.preview-content {
+  padding: 16px;
+}
+
+/* Format Toggle */
+.format-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.toggle-btn {
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: white;
+  color: #4a5568;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  background-color: #f7fafc;
+  border-color: #cbd5e0;
+}
+
+.toggle-btn.active {
+  background-color: #4299e1;
+  border-color: #4299e1;
+  color: white;
+}
+
+/* Readable Format */
+.readable-format {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pattern-section {
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d3748;
+  padding: 12px 16px;
+  margin: 0;
+  background-color: #f7fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.pattern-content {
+  padding: 16px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.create-pattern {
+  color: #2b6cb0;
+  background-color: #ebf8ff;
+}
+
+.replace-pattern {
+  color: #2c7a7b;
+  background-color: #e6fffa;
+}
+
+/* JSON Format */
+.json-format {
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.json-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f7fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.json-header .section-title {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background-color: #4299e1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copy-btn:hover {
+  background-color: #3182ce;
+}
+
+.copy-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.json-payload {
+  margin: 0;
+  padding: 16px;
+  background-color: #2d3748;
+  color: #e2e8f0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* Invalid Content */
+.invalid-content {
+  padding: 24px 16px;
+}
+
+.invalid-message {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  color: #e53e3e;
+}
+
+.invalid-message svg {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.message-content h4 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.message-content p {
+  margin: 0;
+  font-size: 14px;
+  color: #718096;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .format-toggle {
+    flex-direction: column;
+  }
+  
+  .toggle-btn {
+    text-align: center;
+  }
+  
+  .json-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  
+  .copy-btn {
+    align-self: flex-end;
+  }
 }
 </style>

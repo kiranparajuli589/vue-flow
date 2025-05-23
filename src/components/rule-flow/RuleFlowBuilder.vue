@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { useRuleService } from '@/composables/useRuleService'
 import { useRuleAutomation } from '@/composables/useRuleAutomation'
@@ -206,6 +206,26 @@ function getSmartPosition(position: { x: number; y: number }) {
   
   return { x, y }
 }
+
+// Add emit for flow data changes
+const emit = defineEmits(['update:modelValue', 'validate', 'flow-change']);
+
+// Watch nodes and edges and emit changes
+watch([nodes, edges], ([newNodes, newEdges]) => {
+  emit('flow-change', { nodes: newNodes, edges: newEdges });
+}, { deep: true });
+
+// Also emit on node changes
+onNodesChange((changes) => {
+  const currentNodes = nodes.value
+  const selected = currentNodes.filter(node => node.selected).map(n => n.id)
+  selectedNodes.value = selected
+  
+  // Emit flow change
+  setTimeout(() => {
+    emit('flow-change', { nodes: nodes.value, edges: edges.value });
+  }, 0);
+});
 </script>
 
 <template>

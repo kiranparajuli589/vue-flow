@@ -23,6 +23,7 @@
           v-model="createPattern"
           :initial-rule="initialRule"
           @validate="flowValid = $event"
+          @flow-change="handleFlowChange"
         />
       </div>
 
@@ -67,14 +68,29 @@
         Reset
       </button>
     </div>
+
+    <div class="section">
+      <h2>Rule Preview</h2>
+      <p>Preview how your rule will look and the JSON payload</p>
+
+      <rule-preview
+        :create-pattern="createPattern"
+        :replace-pattern="replacePattern"
+        :replace-type="replacePatternType"
+        :rule-name="ruleName"
+        :nodes="flowNodes"
+        :edges="flowEdges"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import RuleFlowBuilder from './rule-flow/RuleFlowBuilder.vue';
 import StandardReplacePattern from './replace-pattern/StandardReplacePattern.vue';
 import ParametersReplacePattern from './replace-pattern/ParametersReplacePattern.vue';
+import RulePreview from './rule-flow/RulePreview.vue';
 import { convertFlowToRuleFormat } from '@/utils/helpers';
 
 // Props and emits
@@ -93,6 +109,15 @@ const replacePattern = ref({});
 const replacePatternType = ref('standard');
 const flowValid = ref(false);
 const replacePatternValid = ref(false);
+
+// Add state for flow data
+const flowNodes = ref([]);
+const flowEdges = ref([]);
+
+function handleFlowChange(flowData: { nodes: any[], edges: any[] }) {
+  flowNodes.value = flowData.nodes;
+  flowEdges.value = flowData.edges;
+}
 
 // Computed
 const isEditing = computed(() => !!props.initialRule && !!props.initialRule.id);
