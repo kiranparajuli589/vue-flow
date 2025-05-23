@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, provide } from 'vue'
 
-// Add emit for flow data changes
-const emit = defineEmits(['update:modelValue', 'validate', 'flow-change'])
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { useRuleService } from '@/composables/useRuleService'
 import { useRuleAutomation } from '@/composables/useRuleAutomation'
@@ -10,14 +8,17 @@ import { useRootNodeManager } from '@/composables/useRootNodeManager'
 import useDragAndDrop from '@/composables/useDragAndDrop'
 import Sidebar from './FlowSidebar.vue'
 import DropzoneBackground from './DropzoneBackground.vue'
+import ShortcutsOverlay from './ShortcutsOverlay.vue'
 
 import edgeTypes from './edges'
 import nodeTypes from './nodes'
 import { NodeType, FieldType, OperatorType } from '@/types/rule-builder'
 
+// Add emit for flow data changes
+const emit = defineEmits(['update:modelValue', 'validate', 'flow-change'])
+
 const { createSmartEdge } = useRuleService()
 const {
-  autoCompleteBracketGroup,
   promptForBracketAutomation,
   insertAndGroup,
   insertOrGroup,
@@ -29,10 +30,18 @@ const {
   alignNodesVertically,
   spaceNodesEvenly,
   autoFitView,
-  selectedNodes
+  selectedNodes,
 } = useRuleAutomation()
 
-const { onConnect, addEdges, onNodeDragStop, onNodesChange, addNodes, screenToFlowCoordinate, removeNodes, removeEdges } = useVueFlow()
+const {
+  onConnect,
+  addEdges,
+  onNodesChange,
+  addNodes,
+  screenToFlowCoordinate,
+  removeNodes,
+  removeEdges,
+} = useVueFlow()
 
 const { onDragOver, onDrop, onDragLeave, isDragOver } = useDragAndDrop()
 
@@ -62,7 +71,12 @@ const edges = ref([])
 // Handle connection with smart edge type detection
 onConnect((params) => {
   console.log('Connection params:', params)
-  const edge = createSmartEdge(params.source, params.target, params.sourceHandle, params.targetHandle)
+  const edge = createSmartEdge(
+    params.source,
+    params.target,
+    params.sourceHandle,
+    params.targetHandle,
+  )
   console.log('Created edge:', edge)
   addEdges([edge])
 })
@@ -70,7 +84,7 @@ onConnect((params) => {
 // Track selected nodes through node changes
 onNodesChange((changes) => {
   const currentNodes = nodes.value
-  const selected = currentNodes.filter(node => node.selected).map(n => n.id)
+  const selected = currentNodes.filter((node) => node.selected).map((n) => n.id)
   selectedNodes.value = selected
 })
 
@@ -141,16 +155,18 @@ function addConditionNode(position: { x: number; y: number }) {
   const nodeId = `condition_${Date.now()}`
   const flowPosition = screenToFlowCoordinate(position)
 
-  addNodes([{
-    id: nodeId,
-    type: NodeType.CONDITION,
-    position: getSmartPosition(flowPosition),
-    data: {
-      field: FieldType.URI_PATH,
-      operator: OperatorType.EQUALS,
-      value: ''
-    }
-  }])
+  addNodes([
+    {
+      id: nodeId,
+      type: NodeType.CONDITION,
+      position: getSmartPosition(flowPosition),
+      data: {
+        field: FieldType.URI_PATH,
+        operator: OperatorType.EQUALS,
+        value: '',
+      },
+    },
+  ])
 }
 
 function addBracketPair(position: { x: number; y: number }) {
@@ -161,7 +177,7 @@ function addBracketPair(position: { x: number; y: number }) {
   // Simulate the bracket pair creation from drag and drop
   const event = new DragEvent('drop', {
     clientX: position.x,
-    clientY: position.y
+    clientY: position.y,
   })
 
   // Set the dragged type to bracket-pair and handle drop
@@ -184,7 +200,7 @@ function getSmartPosition(position: { x: number; y: number }) {
   // Check for overlaps and adjust
   let attempts = 0
   while (attempts < 20) {
-    const hasOverlap = currentNodes.some(node => {
+    const hasOverlap = currentNodes.some((node) => {
       const dx = Math.abs(node.position.x - x)
       const dy = Math.abs(node.position.y - y)
       return dx < nodeWidth && dy < nodeHeight
@@ -208,46 +224,50 @@ function getSmartPosition(position: { x: number; y: number }) {
 function resetCanvas() {
   // Confirm with user before resetting
   if (confirm('Are you sure you want to reset the canvas? This will remove all nodes and edges.')) {
-    console.log('Resetting canvas...');
+    console.log('Resetting canvas...')
 
     // Get all current nodes and edges
-    const allNodes = nodes.value;
-    const allEdges = edges.value;
+    const allNodes = nodes.value
+    const allEdges = edges.value
 
-    console.log('Removing nodes:', allNodes.length, 'edges:', allEdges.length);
+    console.log('Removing nodes:', allNodes.length, 'edges:', allEdges.length)
 
     // Remove all nodes and edges
     if (allNodes.length > 0) {
-      removeNodes(allNodes.map(n => n.id));
+      removeNodes(allNodes.map((n) => n.id))
     }
     if (allEdges.length > 0) {
-      removeEdges(allEdges.map(e => e.id));
+      removeEdges(allEdges.map((e) => e.id))
     }
 
     // Clear local refs
-    nodes.value = [];
-    edges.value = [];
+    nodes.value = []
+    edges.value = []
 
-    console.log('Canvas reset complete');
+    console.log('Canvas reset complete')
   }
 }
 
 // Watch nodes and edges and emit changes (only connected flow)
-watch([nodes, edges], ([newNodes, newEdges]) => {
-  // Get only the connected flow for preview
-  const connectedFlow = rootNodeManager.getConnectedFlow()
-  emit('flow-change', {
-    nodes: connectedFlow.nodes,
-    edges: connectedFlow.edges,
-    rootNodeId: rootNodeManager.currentRootNodeId.value,
-    hasValidFlow: rootNodeManager.hasValidFlow()
-  });
-}, { deep: true });
+watch(
+  [nodes, edges],
+  ([newNodes, newEdges]) => {
+    // Get only the connected flow for preview
+    const connectedFlow = rootNodeManager.getConnectedFlow()
+    emit('flow-change', {
+      nodes: connectedFlow.nodes,
+      edges: connectedFlow.edges,
+      rootNodeId: rootNodeManager.currentRootNodeId.value,
+      hasValidFlow: rootNodeManager.hasValidFlow(),
+    })
+  },
+  { deep: true },
+)
 
 // Also emit on node changes
 onNodesChange((changes) => {
   const currentNodes = nodes.value
-  const selected = currentNodes.filter(node => node.selected).map(n => n.id)
+  const selected = currentNodes.filter((node) => node.selected).map((n) => n.id)
   selectedNodes.value = selected
 
   // Emit flow change
@@ -257,19 +277,14 @@ onNodesChange((changes) => {
       nodes: connectedFlow.nodes,
       edges: connectedFlow.edges,
       rootNodeId: rootNodeManager.currentRootNodeId.value,
-      hasValidFlow: rootNodeManager.hasValidFlow()
-    });
-  }, 0);
-});
+      hasValidFlow: rootNodeManager.hasValidFlow(),
+    })
+  }, 0)
+})
 </script>
 
 <template>
-  <div
-    class="dnd-flow"
-    @drop="handleDrop"
-    @keydown="handleKeyDown"
-    tabindex="0"
-  >
+  <div class="dnd-flow" @drop="handleDrop" @keydown="handleKeyDown" tabindex="0">
     <Sidebar />
 
     <VueFlow
@@ -314,21 +329,8 @@ onNodesChange((changes) => {
           </button>
         </div>
 
-        <!-- Keyboard shortcuts help -->
-        <div class="shortcuts-help" v-if="!isDragOver">
-          <div class="shortcuts-title">⌨️ Keyboard Shortcuts</div>
-          <div class="shortcuts-list">
-            <div><strong>Ctrl+1:</strong> Add Condition</div>
-            <div><strong>Ctrl+2:</strong> Add Bracket Pair</div>
-            <div><strong>Ctrl+G:</strong> Insert AND Group</div>
-            <div><strong>Ctrl+Shift+G:</strong> Insert OR Group</div>
-            <div><strong>Ctrl+D:</strong> Duplicate</div>
-            <div><strong>Ctrl+C/V:</strong> Copy/Paste</div>
-            <div><strong>Ctrl+B:</strong> Wrap in Brackets</div>
-            <div><strong>Ctrl+A:</strong> Align Horizontal</div>
-            <div><strong>Ctrl+F:</strong> Fit to View</div>
-          </div>
-        </div>
+        <!-- Shortcuts overlay component -->
+        <ShortcutsOverlay v-if="!isDragOver" />
       </DropzoneBackground>
     </VueFlow>
   </div>
@@ -418,41 +420,5 @@ onNodesChange((changes) => {
 .reset-btn svg {
   width: 14px;
   height: 14px;
-}
-
-.shortcuts-help {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  background-color: rgba(255, 255, 255, 0.95);
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-  max-width: 280px;
-}
-
-.shortcuts-title {
-  font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 8px;
-  color: #4a5568;
-}
-
-.shortcuts-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: #718096;
-}
-
-.shortcuts-list div {
-  padding: 2px 0;
-}
-
-.shortcuts-list strong {
-  color: #4a5568;
 }
 </style>
