@@ -1,20 +1,40 @@
 <!-- src/components/rule-flow/nodes/ConditionNode.vue -->
 <template>
-  <div v-if="isReady" class="condition-node" :class="{ 'error': !isValid, 'valid': isValid }">
+  <div v-if="isReady" class="condition-node">
     <div class="node-header">
-      <span class="node-title">Condition</span>
-      <!-- Validation status icon -->
-      <div class="validation-status">
-        <img v-if="isValid" src="@/assets/icons/check.svg" class="validation-icon valid-icon" />
-        <img v-else src="@/assets/icons/exclamation.svg" class="validation-icon error-icon" />
+      <div class="header-left">
+        <span class="node-title">Condition</span>
+
+        <input
+          type="checkbox"
+          :checked="isRootNode"
+          @change="toggleRootNode"
+          class="root-checkbox"
+          :id="`root-${id}`"
+        />
+      </div>
+      <div class="header-right">
+        <div class="validation-status">
+          <img v-if="isValid" src="@/assets/icons/check.svg" class="validation-icon valid-icon" />
+          <img v-else src="@/assets/icons/exclamation.svg" class="validation-icon error-icon" />
+        </div>
       </div>
     </div>
 
     <!-- Show only general validation errors at the top -->
     <div v-if="generalErrors.length > 0" class="validation-errors">
       <div v-for="error in generalErrors" :key="error" class="error-item">
-        <svg class="error-bullet" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+        <svg
+          class="error-bullet"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+            clip-rule="evenodd"
+          />
         </svg>
         <span>{{ error }}</span>
       </div>
@@ -23,11 +43,11 @@
     <div class="node-content">
       <div class="form-group">
         <label>Field <span class="required">*</span></label>
-        <select 
-          :value="nodeData.field" 
-          @change="updateField($event)" 
+        <select
+          :value="nodeData.field"
+          @change="updateField($event)"
           class="form-select"
-          :class="{ 'error': fieldErrors.field }"
+          :class="{ error: fieldErrors.field }"
         >
           <option value="">Select field...</option>
           <option v-for="field in fields" :key="field.value" :value="field.value">
@@ -41,11 +61,11 @@
 
       <div class="form-group">
         <label>Operator <span class="required">*</span></label>
-        <select 
-          :value="nodeData.operator" 
-          @change="updateOperator($event)" 
+        <select
+          :value="nodeData.operator"
+          @change="updateOperator($event)"
           class="form-select"
-          :class="{ 'error': fieldErrors.operator }"
+          :class="{ error: fieldErrors.operator }"
         >
           <option value="">Select operator...</option>
           <option v-for="op in operators" :key="op.value" :value="op.value">
@@ -65,7 +85,7 @@
           @blur="validateAndUpdate"
           :placeholder="fieldPlaceholder"
           class="form-input"
-          :class="{ 'error': fieldErrors.value }"
+          :class="{ error: fieldErrors.value }"
         />
         <!-- Dynamic description based on selected field -->
         <div v-if="!touched.value && fieldDescription" class="field-description">
@@ -85,10 +105,10 @@
       :position="Position.Top"
       :isConnectable="true"
       class="vf-handle flow-handle target-handle"
-      :class="{ 'connected': hasTopConnection }"
+      :class="{ connected: hasTopConnection }"
       :style="{ top: '-8px', left: '50%', transform: 'translateX(-50%)' }"
     />
-    
+
     <!-- Bottom handle - Flow output (simple connection) -->
     <Handle
       id="bottom"
@@ -96,10 +116,10 @@
       :position="Position.Bottom"
       :isConnectable="true"
       class="vf-handle flow-handle source-handle"
-      :class="{ 'connected': hasBottomConnection }"
+      :class="{ connected: hasBottomConnection }"
       :style="{ bottom: '-8px', left: '50%', transform: 'translateX(-50%)' }"
     />
-    
+
     <!-- Left handle - Join input (join connection) -->
     <Handle
       id="left"
@@ -107,10 +127,10 @@
       :position="Position.Left"
       :isConnectable="true"
       class="vf-handle join-handle target-handle"
-      :class="{ 'connected': hasLeftConnection }"
+      :class="{ connected: hasLeftConnection }"
       :style="{ left: '-8px', top: '50%', transform: 'translateY(-50%)' }"
     />
-    
+
     <!-- Right handle - Join output (join connection) -->
     <Handle
       id="right"
@@ -118,190 +138,225 @@
       :position="Position.Right"
       :isConnectable="true"
       class="vf-handle join-handle source-handle"
-      :class="{ 'connected': hasRightConnection }"
+      :class="{ connected: hasRightConnection }"
       :style="{ right: '-8px', top: '50%', transform: 'translateY(-50%)' }"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue';
-import { useVueFlow, Position, Handle } from '@vue-flow/core';
-import { FieldType, OperatorType } from '@/types/rule-builder';
-import { useConditionService } from '@/composables/useConditionService';
+import { ref, reactive, computed, onMounted, watch, inject } from 'vue'
+import { useVueFlow, Position, Handle } from '@vue-flow/core'
+import { FieldType, OperatorType } from '@/types/rule-builder'
+import { useConditionService } from '@/composables/useConditionService'
 
 // Flag to prevent rendering until ready
-const isReady = ref(false);
+const isReady = ref(false)
 
 const props = defineProps({
   id: { type: String, required: true },
   data: { type: Object, default: () => null },
-  selected: { type: Boolean, default: false }
-});
+  selected: { type: Boolean, default: false },
+})
 
-const emit = defineEmits(['nodeUpdate']);
-const { updateNode, getEdges } = useVueFlow();
-const { fields, operators, validateField } = useConditionService();
+const emit = defineEmits(['nodeUpdate'])
+const { updateNode, getEdges } = useVueFlow()
+const { fields, operators, validateField } = useConditionService()
+
+// Inject root node management
+const rootNodeManager = inject('rootNodeManager', {
+  isRootNode: () => false,
+  setRootNode: () => {},
+  moveNodeToTop: () => {},
+})
 
 // Initialize with default values
 const nodeData = reactive({
   field: FieldType.URI_PATH,
   operator: OperatorType.EQUALS,
   value: '',
-  error: null
-});
+  error: null,
+})
 
 // Track touched state for each field
 const touched = reactive({
   field: false,
   operator: false,
-  value: false
-});
+  value: false,
+})
 
 // Connection status tracking
-const hasTopConnection = ref(false);
-const hasBottomConnection = ref(false);
-const hasLeftConnection = ref(false);
-const hasRightConnection = ref(false);
+const hasTopConnection = ref(false)
+const hasBottomConnection = ref(false)
+const hasLeftConnection = ref(false)
+const hasRightConnection = ref(false)
+
+// Root node status
+const isRootNode = computed(() => rootNodeManager.isRootNode(props.id))
 
 // Watch for edge changes to update connection status
-watch(() => getEdges.value, (edges) => {
-  hasTopConnection.value = edges.some(edge => edge.target === props.id && edge.targetHandle === 'top');
-  hasBottomConnection.value = edges.some(edge => edge.source === props.id && edge.sourceHandle === 'bottom');
-  hasLeftConnection.value = edges.some(edge => edge.target === props.id && edge.targetHandle === 'left');
-  hasRightConnection.value = edges.some(edge => edge.source === props.id && edge.sourceHandle === 'right');
-}, { deep: true, immediate: true });
+watch(
+  () => getEdges.value,
+  (edges) => {
+    hasTopConnection.value = edges.some(
+      (edge) => edge.target === props.id && edge.targetHandle === 'top',
+    )
+    hasBottomConnection.value = edges.some(
+      (edge) => edge.source === props.id && edge.sourceHandle === 'bottom',
+    )
+    hasLeftConnection.value = edges.some(
+      (edge) => edge.target === props.id && edge.targetHandle === 'left',
+    )
+    hasRightConnection.value = edges.some(
+      (edge) => edge.source === props.id && edge.sourceHandle === 'right',
+    )
+  },
+  { deep: true, immediate: true },
+)
 
 // Field-specific validation errors (only show if touched)
 const fieldErrors = computed(() => {
   const errors = {
     field: '',
     operator: '',
-    value: ''
-  };
-  
+    value: '',
+  }
+
   // Field validation (show only if touched)
   if (touched.field && !nodeData.field) {
-    errors.field = 'Field is required';
+    errors.field = 'Field is required'
   }
-  
+
   // Operator validation (show only if touched)
   if (touched.operator && !nodeData.operator) {
-    errors.operator = 'Operator is required';
+    errors.operator = 'Operator is required'
   }
-  
+
   // Value validation (show only if touched)
   if (touched.value) {
     if (!nodeData.value) {
-      errors.value = 'Value is required';
+      errors.value = 'Value is required'
     } else if (nodeData.error) {
       // Add field-specific validation error from validateField
-      errors.value = nodeData.error;
+      errors.value = nodeData.error
     }
   }
-  
-  return errors;
-});
+
+  return errors
+})
 
 // General validation errors (non-field specific)
 const generalErrors = computed(() => {
-  const errors = [];
-  
+  const errors = []
+
   // Connection validation - at least one handle must be connected
-  const hasAnyConnection = hasTopConnection.value || hasBottomConnection.value || 
-                          hasLeftConnection.value || hasRightConnection.value;
-  
+  const hasAnyConnection =
+    hasTopConnection.value ||
+    hasBottomConnection.value ||
+    hasLeftConnection.value ||
+    hasRightConnection.value
+
   if (!hasAnyConnection) {
-    errors.push('Node must be connected to at least one other node');
+    errors.push('Node must be connected to at least one other node')
   }
-  
-  return errors;
-});
+
+  return errors
+})
 
 // Overall validation status (always check for header status, regardless of touched)
 const isValid = computed(() => {
   // Check all required fields have values
-  const hasAllRequiredFields = nodeData.field && nodeData.operator && nodeData.value;
-  
+  const hasAllRequiredFields = nodeData.field && nodeData.operator && nodeData.value
+
   // Check if there's any field-specific validation error (even if not touched)
-  const hasFieldValidationError = nodeData.error;
-  
+  const hasFieldValidationError = nodeData.error
+
   // Check if there are any general errors
-  const hasGeneralErrors = generalErrors.value.length > 0;
-  
-  return hasAllRequiredFields && !hasFieldValidationError && !hasGeneralErrors;
-});
+  const hasGeneralErrors = generalErrors.value.length > 0
+
+  return hasAllRequiredFields && !hasFieldValidationError && !hasGeneralErrors
+})
 
 // Dynamic field configurations
 const fieldConfig = computed(() => {
-  const field = fields.value.find(f => f.value === nodeData.field);
-  if (!field) return { placeholder: 'Enter value', description: 'Select a field first' };
-  
+  const field = fields.value.find((f) => f.value === nodeData.field)
+  if (!field) return { placeholder: 'Enter value', description: 'Select a field first' }
+
   const config = {
     placeholder: field.meta?.placeholder || 'Enter value',
-    description: field.meta?.valueDescription || ''
-  };
-  
+    description: field.meta?.valueDescription || '',
+  }
+
   // Enhanced descriptions with examples based on field type
   switch (nodeData.field) {
     case 'req.uri.path':
-      config.placeholder = '/api/users';
-      config.description = 'URL path starting with /, e.g., /api/v1/users, /blog/posts';
-      break;
+      config.placeholder = '/api/users'
+      config.description = 'URL path starting with /, e.g., /api/v1/users, /blog/posts'
+      break
     case 'req.method':
-      config.placeholder = 'GET';
-      config.description = 'HTTP method like GET, POST, PUT, DELETE';
-      break;
+      config.placeholder = 'GET'
+      config.description = 'HTTP method like GET, POST, PUT, DELETE'
+      break
     case 'req.headers.host':
-      config.placeholder = 'example.com';
-      config.description = 'Domain name, e.g., api.example.com, www.site.org';
-      break;
+      config.placeholder = 'example.com'
+      config.description = 'Domain name, e.g., api.example.com, www.site.org'
+      break
     case 'req.headers.UserAgent':
-      config.placeholder = 'Mozilla/5.0';
-      config.description = 'Browser or client identifier, e.g., "Chrome", "mobile"';
-      break;
+      config.placeholder = 'Mozilla/5.0'
+      config.description = 'Browser or client identifier, e.g., "Chrome", "mobile"'
+      break
     case 'req.geo.country':
-      config.placeholder = 'US';
-      config.description = 'Two-letter country code, e.g., US, GB, CA, DE';
-      break;
+      config.placeholder = 'US'
+      config.description = 'Two-letter country code, e.g., US, GB, CA, DE'
+      break
     case 'res.status':
-      config.placeholder = '200';
-      config.description = 'HTTP status code, e.g., 200 (OK), 404 (Not Found), 500 (Error)';
-      break;
+      config.placeholder = '200'
+      config.description = 'HTTP status code, e.g., 200 (OK), 404 (Not Found), 500 (Error)'
+      break
     default:
-      config.description = 'Enter the value to match against';
+      config.description = 'Enter the value to match against'
   }
-  
-  return config;
-});
+
+  return config
+})
 
 // Computed placeholder for field
-const fieldPlaceholder = computed(() => fieldConfig.value.placeholder);
+const fieldPlaceholder = computed(() => fieldConfig.value.placeholder)
 
 // Computed field description
-const fieldDescription = computed(() => fieldConfig.value.description);
+const fieldDescription = computed(() => fieldConfig.value.description)
+
+// Root node toggle
+function toggleRootNode() {
+  if (isRootNode.value) {
+    // Cannot uncheck if already root - there must be a root
+    return
+  }
+  rootNodeManager.setRootNode(props.id)
+  rootNodeManager.moveNodeToTop(props.id)
+}
 
 // Direct update functions to avoid v-model issues
 function updateField(event) {
-  touched.field = true;
-  nodeData.field = event.target.value;
+  touched.field = true
+  nodeData.field = event.target.value
   // Clear value error when field changes as validation context changes
-  nodeData.error = null;
-  handleUpdate();
+  nodeData.error = null
+  handleUpdate()
 }
 
 function updateOperator(event) {
-  touched.operator = true;
-  nodeData.operator = event.target.value;
-  handleUpdate();
+  touched.operator = true
+  nodeData.operator = event.target.value
+  handleUpdate()
 }
 
 function updateValue(event) {
-  touched.value = true;
-  nodeData.value = event.target.value;
+  touched.value = true
+  nodeData.value = event.target.value
   // Clear error when user starts typing
-  nodeData.error = null;
-  handleUpdate();
+  nodeData.error = null
+  handleUpdate()
 }
 
 // Update node data without validation
@@ -311,9 +366,9 @@ function handleUpdate() {
       field: nodeData.field,
       operator: nodeData.operator,
       value: nodeData.value,
-      error: nodeData.error
-    }
-  });
+      error: nodeData.error,
+    },
+  })
 
   emit('nodeUpdate', {
     id: props.id,
@@ -321,44 +376,44 @@ function handleUpdate() {
       field: nodeData.field,
       operator: nodeData.operator,
       value: nodeData.value,
-      error: nodeData.error
-    }
-  });
+      error: nodeData.error,
+    },
+  })
 }
 
 // Validate the value and update node
 function validateAndUpdate() {
-  touched.value = true;
+  touched.value = true
   // Only validate if we have a field and value
   if (nodeData.field && nodeData.value) {
-    const error = validateField(nodeData.field, nodeData.value);
-    nodeData.error = error || null;
+    const error = validateField(nodeData.field, nodeData.value)
+    nodeData.error = error || null
   }
-  handleUpdate();
+  handleUpdate()
 }
 
 // Initialize component with data if available
 function initializeNodeData() {
   if (props.data) {
-    nodeData.field = props.data.field || FieldType.URI_PATH;
-    nodeData.operator = props.data.operator || OperatorType.EQUALS;
-    nodeData.value = props.data.value || '';
-    nodeData.error = props.data.error || null;
-    
+    nodeData.field = props.data.field || FieldType.URI_PATH
+    nodeData.operator = props.data.operator || OperatorType.EQUALS
+    nodeData.value = props.data.value || ''
+    nodeData.error = props.data.error || null
+
     // Mark fields as touched if they have values (for loaded rules)
-    if (nodeData.field) touched.field = true;
-    if (nodeData.operator) touched.operator = true;
-    if (nodeData.value) touched.value = true;
+    if (nodeData.field) touched.field = true
+    if (nodeData.operator) touched.operator = true
+    if (nodeData.value) touched.value = true
   }
   // Mark component as ready to render
-  isReady.value = true;
+  isReady.value = true
 }
 
 // Initialize when mounted
 onMounted(() => {
   // Initialize from props data
-  initializeNodeData();
-});
+  initializeNodeData()
+})
 </script>
 
 <style scoped>
@@ -390,6 +445,31 @@ onMounted(() => {
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.root-checkbox {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.root-label {
+  font-size: 11px;
+  color: #718096;
+  font-weight: 500;
+  margin: 0;
+  cursor: pointer;
 }
 
 .node-title {
@@ -495,7 +575,8 @@ onMounted(() => {
   font-weight: 500;
 }
 
-.form-select, .form-input {
+.form-select,
+.form-input {
   padding: 8px;
   border: 1px solid #e2e8f0;
   border-radius: 4px;

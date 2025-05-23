@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import useDragAndDrop from '@/composables/useDragAndDrop'
+import { useRuleTemplates } from '@/composables/useRuleTemplates'
 import { NodeType } from '@/types/rule-builder'
+
 const { onDragStart } = useDragAndDrop()
+const { getTemplates } = useRuleTemplates()
+
+const templates = getTemplates()
 </script>
 
 <template>
@@ -9,42 +14,62 @@ const { onDragStart } = useDragAndDrop()
     <div class="sidebar--container">
       <div class="sidebar-title">Rule Elements</div>
 
-    <div
-      class="dnd-item condition-item"
-      draggable="true"
-      @dragstart="onDragStart($event, NodeType.CONDITION)"
-    >
-      <img src="@/assets/icons/condition.svg" alt="Condition" class="icon" />
-      <span>Condition</span>
-    </div>
+      <!-- Basic Elements -->
+      <div class="section">
+        <div class="section-header">Basic Elements</div>
 
-    <div
-      class="dnd-item bracket-item"
-      draggable="true"
-      @dragstart="onDragStart($event, NodeType.BRACKET_OPEN)"
-    >
-      <img src="@/assets/icons/bracket.svg" alt="Bracket" class="icon" />
-      <span>Bracket Open</span>
-    </div>
+        <div
+          class="dnd-item condition-item"
+          draggable="true"
+          @dragstart="onDragStart($event, NodeType.CONDITION)"
+        >
+          <img src="@/assets/icons/condition.svg" alt="Condition" class="icon" />
+          <span>Condition</span>
+        </div>
 
-    <div
-      class="dnd-item bracket-item"
-      draggable="true"
-      @dragstart="onDragStart($event, NodeType.BRACKET_CLOSE)"
-    >
-      <img src="@/assets/icons/bracket.svg" alt="Bracket" class="icon" />
-      <span>Bracket Close</span>
-    </div>
-
-    <div class="info-box">
-      <div class="info-title">
-        <img src="@/assets/icons/info.svg" alt="Info" class="info-icon" />
-        <span>How to Join Nodes</span>
+        <div
+          class="dnd-item bracket-item"
+          draggable="true"
+          @dragstart="onDragStart($event, 'bracket-pair')"
+        >
+          <img src="@/assets/icons/bracket.svg" alt="Bracket" class="icon" />
+          <span>Bracket Pair</span>
+        </div>
       </div>
-      <p>
-        Connect nodes by dragging from one handle to another. Click on the connection line to set AND/OR operators.
-      </p>
-    </div>
+
+      <!-- Templates -->
+      <div class="section">
+        <div class="section-header">Templates</div>
+
+        <div
+          v-for="template in templates"
+          :key="template.id"
+          class="dnd-item template-item"
+          draggable="true"
+          @dragstart="onDragStart($event, `template:${template.id}`)"
+          :title="template.description"
+        >
+          <span class="template-icon">{{ template.icon }}</span>
+          <div class="template-info">
+            <div class="template-name">{{ template.name }}</div>
+            <div class="template-desc">{{ template.description }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <div class="info-title">
+          <img src="@/assets/icons/info.svg" alt="Info" class="info-icon" />
+          <span>How to Use</span>
+        </div>
+        <p>
+          <strong>Condition:</strong> Add individual conditions<br>
+          <strong>Bracket Pair:</strong> Creates both opening and closing brackets<br>
+          <strong>Templates:</strong> Pre-built common patterns<br>
+          <strong>Root Node:</strong> Check the checkbox to set as starting point<br>
+          <strong>Connections:</strong> Drag from handles to connect nodes
+        </p>
+      </div>
     </div>
   </aside>
 </template>
@@ -73,12 +98,26 @@ const { onDragStart } = useDragAndDrop()
   color: #1a202c;
 }
 
+.section {
+  margin-bottom: 20px;
+}
+
+.section-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  padding-left: 4px;
+}
+
 .dnd-item {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   background-color: white;
   border: 1px solid #e2e8f0;
   border-radius: 4px;
@@ -99,6 +138,7 @@ const { onDragStart } = useDragAndDrop()
 .icon {
   width: 20px;
   height: 20px;
+  flex-shrink: 0;
 }
 
 .condition-item {
@@ -111,6 +151,44 @@ const { onDragStart } = useDragAndDrop()
   background-color: #e6fffa;
   border-color: #81e6d9;
   color: #2c7a7b;
+}
+
+.template-item {
+  background-color: #fef5e7;
+  border-color: #f6cc8f;
+  color: #c05621;
+  align-items: flex-start;
+  padding: 10px 12px;
+}
+
+.template-item:hover {
+  background-color: #fed7aa;
+}
+
+.template-icon {
+  font-size: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.template-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.template-name {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.template-desc {
+  font-size: 11px;
+  color: #92400e;
+  line-height: 1.3;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
 .info-box {

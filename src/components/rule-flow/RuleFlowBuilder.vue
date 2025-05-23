@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, provide } from 'vue'
+
+// Add emit for flow data changes
+const emit = defineEmits(['update:modelValue', 'validate', 'flow-change'])
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { useRuleService } from '@/composables/useRuleService'
 import { useRuleAutomation } from '@/composables/useRuleAutomation'
+import { useRootNodeManager } from '@/composables/useRootNodeManager'
 import useDragAndDrop from '@/composables/useDragAndDrop'
 import Sidebar from './FlowSidebar.vue'
 import DropzoneBackground from './DropzoneBackground.vue'
@@ -12,7 +16,7 @@ import nodeTypes from './nodes'
 import { NodeType, FieldType, OperatorType } from '@/types/rule-builder'
 
 const { createSmartEdge } = useRuleService()
-const { 
+const {
   autoCompleteBracketGroup,
   promptForBracketAutomation,
   insertAndGroup,
@@ -28,20 +32,24 @@ const {
   selectedNodes
 } = useRuleAutomation()
 
-const { onConnect, addEdges, onNodeDragStop, onNodesChange, addNodes, screenToFlowCoordinate } = useVueFlow()
+const { onConnect, addEdges, onNodeDragStop, onNodesChange, addNodes, screenToFlowCoordinate, removeNodes, removeEdges } = useVueFlow()
 
 const { onDragOver, onDrop, onDragLeave, isDragOver } = useDragAndDrop()
+
+// Root node management
+const rootNodeManager = useRootNodeManager()
+provide('rootNodeManager', rootNodeManager)
 
 // Custom drop handler that triggers auto-completion immediately
 function handleDrop(event: DragEvent) {
   // Call the original onDrop first
   onDrop(event)
-  
+
   // Wait for the node to be added, then prompt for auto-completion
   setTimeout(() => {
     const latestNodes = nodes.value
     const latestNode = latestNodes[latestNodes.length - 1]
-    
+
     if (latestNode && latestNode.type === NodeType.BRACKET_OPEN) {
       promptForBracketAutomation(latestNode.id, latestNode.position)
     }
@@ -70,23 +78,19 @@ onNodesChange((changes) => {
 function handleKeyDown(event: KeyboardEvent) {
   // Don't trigger if user is typing in input fields
   if ((event.target as HTMLElement)?.tagName.toLowerCase() === 'input') return
-  
+
   const isCtrl = event.ctrlKey || event.metaKey
   const centerPosition = { x: 400, y: 300 } // Center of canvas
-  
+
   if (isCtrl) {
     switch (event.key.toLowerCase()) {
       case '1': // Ctrl+1 = Add Condition Node
         event.preventDefault()
         addConditionNode(centerPosition)
         break
-      case '2': // Ctrl+2 = Add Open Bracket
+      case '2': // Ctrl+2 = Add Bracket Pair
         event.preventDefault()
-        addOpenBracket(centerPosition)
-        break
-      case '3': // Ctrl+3 = Add Close Bracket
-        event.preventDefault()
-        addCloseBracket(centerPosition)
+        addBracketPair(centerPosition)
         break
       case 'g': // Ctrl+G = Insert AND group
         event.preventDefault()
@@ -136,7 +140,7 @@ function handleKeyDown(event: KeyboardEvent) {
 function addConditionNode(position: { x: number; y: number }) {
   const nodeId = `condition_${Date.now()}`
   const flowPosition = screenToFlowCoordinate(position)
-  
+
   addNodes([{
     id: nodeId,
     type: NodeType.CONDITION,
@@ -149,28 +153,21 @@ function addConditionNode(position: { x: number; y: number }) {
   }])
 }
 
-function addOpenBracket(position: { x: number; y: number }) {
-  const nodeId = `bracket_open_${Date.now()}`
+function addBracketPair(position: { x: number; y: number }) {
+  // This will be handled by the updated drag and drop system
+  // when we drop a "bracket-pair" type
   const flowPosition = screenToFlowCoordinate(position)
-  
-  addNodes([{
-    id: nodeId,
-    type: NodeType.BRACKET_OPEN,
-    position: getSmartPosition(flowPosition),
-    data: { isOpening: true }
-  }])
-}
 
-function addCloseBracket(position: { x: number; y: number }) {
-  const nodeId = `bracket_close_${Date.now()}`
-  const flowPosition = screenToFlowCoordinate(position)
-  
-  addNodes([{
-    id: nodeId,
-    type: NodeType.BRACKET_CLOSE,
-    position: getSmartPosition(flowPosition),
-    data: { isOpening: false }
-  }])
+  // Simulate the bracket pair creation from drag and drop
+  const event = new DragEvent('drop', {
+    clientX: position.x,
+    clientY: position.y
+  })
+
+  // Set the dragged type to bracket-pair and handle drop
+  const { draggedType } = useDragAndDrop()
+  draggedType.value = 'bracket-pair'
+  handleDrop(event)
 }
 
 // Smart positioning to avoid overlaps
@@ -179,11 +176,11 @@ function getSmartPosition(position: { x: number; y: number }) {
   const gridSize = 50
   const nodeWidth = 280
   const nodeHeight = 150
-  
+
   // Snap to grid
   let x = Math.round(position.x / gridSize) * gridSize
   let y = Math.round(position.y / gridSize) * gridSize
-  
+
   // Check for overlaps and adjust
   let attempts = 0
   while (attempts < 20) {
@@ -192,9 +189,9 @@ function getSmartPosition(position: { x: number; y: number }) {
       const dy = Math.abs(node.position.y - y)
       return dx < nodeWidth && dy < nodeHeight
     })
-    
+
     if (!hasOverlap) break
-    
+
     // Try next position
     x += nodeWidth + 20
     if (x > position.x + 500) {
@@ -203,16 +200,48 @@ function getSmartPosition(position: { x: number; y: number }) {
     }
     attempts++
   }
-  
+
   return { x, y }
 }
 
-// Add emit for flow data changes
-const emit = defineEmits(['update:modelValue', 'validate', 'flow-change']);
+// Reset canvas function
+function resetCanvas() {
+  // Confirm with user before resetting
+  if (confirm('Are you sure you want to reset the canvas? This will remove all nodes and edges.')) {
+    console.log('Resetting canvas...');
 
-// Watch nodes and edges and emit changes
+    // Get all current nodes and edges
+    const allNodes = nodes.value;
+    const allEdges = edges.value;
+
+    console.log('Removing nodes:', allNodes.length, 'edges:', allEdges.length);
+
+    // Remove all nodes and edges
+    if (allNodes.length > 0) {
+      removeNodes(allNodes.map(n => n.id));
+    }
+    if (allEdges.length > 0) {
+      removeEdges(allEdges.map(e => e.id));
+    }
+
+    // Clear local refs
+    nodes.value = [];
+    edges.value = [];
+
+    console.log('Canvas reset complete');
+  }
+}
+
+// Watch nodes and edges and emit changes (only connected flow)
 watch([nodes, edges], ([newNodes, newEdges]) => {
-  emit('flow-change', { nodes: newNodes, edges: newEdges });
+  // Get only the connected flow for preview
+  const connectedFlow = rootNodeManager.getConnectedFlow()
+  emit('flow-change', {
+    nodes: connectedFlow.nodes,
+    edges: connectedFlow.edges,
+    rootNodeId: rootNodeManager.currentRootNodeId.value,
+    hasValidFlow: rootNodeManager.hasValidFlow()
+  });
 }, { deep: true });
 
 // Also emit on node changes
@@ -220,17 +249,23 @@ onNodesChange((changes) => {
   const currentNodes = nodes.value
   const selected = currentNodes.filter(node => node.selected).map(n => n.id)
   selectedNodes.value = selected
-  
+
   // Emit flow change
   setTimeout(() => {
-    emit('flow-change', { nodes: nodes.value, edges: edges.value });
+    const connectedFlow = rootNodeManager.getConnectedFlow()
+    emit('flow-change', {
+      nodes: connectedFlow.nodes,
+      edges: connectedFlow.edges,
+      rootNodeId: rootNodeManager.currentRootNodeId.value,
+      hasValidFlow: rootNodeManager.hasValidFlow()
+    });
   }, 0);
 });
 </script>
 
 <template>
-  <div 
-    class="dnd-flow" 
+  <div
+    class="dnd-flow"
     @drop="handleDrop"
     @keydown="handleKeyDown"
     tabindex="0"
@@ -253,14 +288,38 @@ onNodesChange((changes) => {
         }"
       >
         <div class="drop-here" v-if="isDragOver">Drop here</div>
-        
+
+        <!-- Flow status indicator -->
+        <div class="flow-status" v-if="!isDragOver">
+          <div class="flow-info">
+            <div v-if="rootNodeManager.currentRootNodeId.value" class="root-info">
+              📍 Root: {{ rootNodeManager.currentRootNodeId.value.substring(0, 8) }}...
+            </div>
+            <div v-if="!rootNodeManager.hasValidFlow()" class="connection-hint">
+              💡 Connect at least 2 nodes to see preview
+            </div>
+            <div v-else class="flow-ready">
+              ✅ {{ rootNodeManager.getConnectedFlow().nodes.length }} connected nodes
+            </div>
+          </div>
+
+          <!-- Reset button -->
+          <button
+            v-if="nodes.length > 0"
+            @click="resetCanvas"
+            class="reset-btn"
+            title="Reset canvas - clears all nodes and edges"
+          >
+            Reset
+          </button>
+        </div>
+
         <!-- Keyboard shortcuts help -->
         <div class="shortcuts-help" v-if="!isDragOver">
           <div class="shortcuts-title">⌨️ Keyboard Shortcuts</div>
           <div class="shortcuts-list">
             <div><strong>Ctrl+1:</strong> Add Condition</div>
-            <div><strong>Ctrl+2:</strong> Add Open Bracket</div>
-            <div><strong>Ctrl+3:</strong> Add Close Bracket</div>
+            <div><strong>Ctrl+2:</strong> Add Bracket Pair</div>
             <div><strong>Ctrl+G:</strong> Insert AND Group</div>
             <div><strong>Ctrl+Shift+G:</strong> Insert OR Group</div>
             <div><strong>Ctrl+D:</strong> Duplicate</div>
@@ -294,9 +353,76 @@ onNodesChange((changes) => {
   font-weight: 500;
 }
 
-.shortcuts-help {
+.flow-status {
   position: absolute;
   top: 16px;
+  left: 16px;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  max-width: 280px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.flow-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.root-info {
+  color: #4299e1;
+  font-weight: 600;
+}
+
+.connection-hint {
+  color: #ed8936;
+  font-weight: 500;
+}
+
+.flow-ready {
+  color: #48bb78;
+  font-weight: 500;
+}
+
+.reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background-color: #f56565;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reset-btn:hover {
+  background-color: #e53e3e;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(245, 101, 101, 0.3);
+}
+
+.reset-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.shortcuts-help {
+  position: absolute;
+  bottom: 16px;
   right: 16px;
   background-color: rgba(255, 255, 255, 0.95);
   border: 1px solid #e2e8f0;

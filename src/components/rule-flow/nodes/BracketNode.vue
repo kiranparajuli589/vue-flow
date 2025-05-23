@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, inject } from 'vue';
 import { Handle, Position } from '@vue-flow/core';
 
 const props = defineProps({
@@ -7,12 +8,42 @@ const props = defineProps({
   selected: { type: Boolean, default: false },
   isOpening: { type: Boolean, required: true }
 });
+
+// Inject root node management
+const rootNodeManager = inject('rootNodeManager', {
+  isRootNode: () => false,
+  setRootNode: () => {},
+  moveNodeToTop: () => {}
+});
+
+// Root node status
+const isRootNode = computed(() => rootNodeManager.isRootNode(props.id));
+
+// Root node toggle
+function toggleRootNode() {
+  if (isRootNode.value) {
+    // Cannot uncheck if already root - there must be a root
+    return;
+  }
+  rootNodeManager.setRootNode(props.id);
+  rootNodeManager.moveNodeToTop(props.id);
+}
 </script>
 
 <template>
     <div class="bracket-node">
         <div class="node-header">
-            <span class="node-title">{{ isOpening ? 'Opening' : 'Closing' }} Bracket</span>
+            <div class="header-left">
+                <input
+                    type="checkbox"
+                    :checked="isRootNode"
+                    @change="toggleRootNode"
+                    class="root-checkbox"
+                    :id="`root-${id}`"
+                />
+                <label :for="`root-${id}`" class="root-label">Root</label>
+                <span class="node-title">{{ isOpening ? 'Opening' : 'Closing' }} Bracket</span>
+            </div>
         </div>
 
         <div class="node-content">
@@ -31,7 +62,7 @@ const props = defineProps({
             class="vf-handle target-handle"
             :style="{ top: '-8px', left: '50%', transform: 'translateX(-50%)' }"
         />
-        
+
         <!-- Source handle - Output -->
         <Handle
             id="source"
@@ -56,11 +87,31 @@ const props = defineProps({
 
 .node-header {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
     padding-bottom: 8px;
     border-bottom: 1px solid #e2e8f0;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.root-checkbox {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+}
+
+.root-label {
+    font-size: 11px;
+    color: #718096;
+    font-weight: 500;
+    margin: 0;
+    cursor: pointer;
 }
 
 .node-title {

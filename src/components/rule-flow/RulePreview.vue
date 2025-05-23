@@ -23,19 +23,29 @@
 
       <!-- Readable Format -->
       <div v-if="currentFormat === 'readable'" class="readable-format">
-        <!-- Create Pattern -->
-        <div class="pattern-section">
-          <h4 class="section-title">Create Pattern</h4>
-          <div class="pattern-content create-pattern">
-            {{ readableCreatePattern }}
+        <!-- Show status if no valid flow -->
+        <div v-if="!props.hasValidFlow" class="preview-status">
+          <div class="status-message">
+            {{ previewStatus }}
           </div>
         </div>
 
-        <!-- Replace Pattern -->
-        <div class="pattern-section">
-          <h4 class="section-title">Replace Pattern</h4>
-          <div class="pattern-content replace-pattern">
-            {{ readableReplacePattern }}
+        <!-- Show preview if valid flow -->
+        <div v-else>
+          <!-- Create Pattern -->
+          <div class="pattern-section">
+            <h4 class="section-title">Create Pattern</h4>
+            <div class="pattern-content create-pattern">
+              {{ readableCreatePattern }}
+            </div>
+          </div>
+
+          <!-- Replace Pattern -->
+          <div class="pattern-section">
+            <h4 class="section-title">Replace Pattern</h4>
+            <div class="pattern-content replace-pattern">
+              {{ readableReplacePattern }}
+            </div>
           </div>
         </div>
       </div>
@@ -70,6 +80,8 @@ const props = defineProps<{
   ruleName?: string;
   nodes?: any[];
   edges?: any[];
+  rootNodeId?: string;
+  hasValidFlow?: boolean;
 }>();
 
 // Composable
@@ -77,7 +89,8 @@ const {
   formatCreatePatternReadable,
   formatReplacePatternReadable,
   generateRulePayload,
-  generateFlowPayload
+  generateFlowPayload,
+  getPreviewStatus
 } = useRulePreview();
 
 // State
@@ -85,19 +98,42 @@ const currentFormat = ref<'readable' | 'json'>('readable');
 
 // Computed properties
 const currentCreatePattern = computed(() => {
+  console.log('=== Computing currentCreatePattern ===');
+  console.log('Props:', {
+    createPattern: props.createPattern,
+    nodes: props.nodes?.length,
+    edges: props.edges?.length,
+    rootNodeId: props.rootNodeId,
+    hasValidFlow: props.hasValidFlow
+  });
+
   // If createPattern is provided as prop, use it
   if (props.createPattern && props.createPattern.create_pattern?.conditions?.length > 0) {
+    console.log('Using provided createPattern');
     return props.createPattern;
   }
 
   // Otherwise, generate from provided nodes and edges
   if (props.nodes && props.edges) {
-    const flowPayload = generateFlowPayload(props.nodes, props.edges);
+    console.log('Generating from nodes and edges');
+    const flowPayload = generateFlowPayload(
+      props.nodes,
+      props.edges,
+      props.rootNodeId,
+      props.hasValidFlow
+    );
+    console.log('Generated flow payload:', flowPayload);
     return flowPayload;
   }
 
   // Fallback
+  console.log('Using fallback empty pattern');
   return { create_pattern: { conditions: [] } };
+});
+
+// Preview status
+const previewStatus = computed(() => {
+  return getPreviewStatus(props.nodes || [], props.edges || [], props.hasValidFlow || false);
 });
 
 const currentReplacePattern = computed(() => {
@@ -242,6 +278,22 @@ async function copyToClipboard() {
 .replace-pattern {
   color: #2c7a7b;
   background-color: #e6fffa;
+}
+
+/* Preview Status */
+.preview-status {
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  padding: 24px;
+  text-align: center;
+}
+
+.status-message {
+  font-size: 16px;
+  color: #718096;
+  font-style: italic;
 }
 
 /* JSON Format */

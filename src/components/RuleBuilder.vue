@@ -89,6 +89,8 @@
         :rule-name="ruleName"
         :nodes="flowNodes"
         :edges="flowEdges"
+        :root-node-id="rootNodeId"
+        :has-valid-flow="hasValidFlow"
       />
     </div>
   </div>
@@ -119,10 +121,14 @@ const replacePatternType = ref('standard');
 // Add state for flow data
 const flowNodes = ref([]);
 const flowEdges = ref([]);
+const rootNodeId = ref(null);
+const hasValidFlow = ref(false);
 
-function handleFlowChange(flowData: { nodes: any[], edges: any[] }) {
+function handleFlowChange(flowData: { nodes: any[], edges: any[], rootNodeId?: string, hasValidFlow?: boolean }) {
   flowNodes.value = flowData.nodes;
   flowEdges.value = flowData.edges;
+  rootNodeId.value = flowData.rootNodeId;
+  hasValidFlow.value = flowData.hasValidFlow || false;
 }
 
 // Computed
